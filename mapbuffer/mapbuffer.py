@@ -49,7 +49,8 @@ class MapBuffer:
     """
     data: dict (int->byte serializable object) or bytes 
       (representing a MapBuffer)
-    compress: 
+    compress: string representing a valid compression type or None
+      Valid: "gzip", "br", "zstd", "lzma"
     tobytesfn: function for converting dict values to byte strings
       if they are not already.
         e.g. lambda mystr: mystr.encode("utf8")
