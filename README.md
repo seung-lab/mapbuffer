@@ -28,3 +28,11 @@ Therefore, this method was developed to skip parsing the dictionaries and rapidl
 
 ## Design
 
+
+
+
+
+
+
+
+
