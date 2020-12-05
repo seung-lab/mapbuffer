@@ -169,7 +169,6 @@ class MapBuffer:
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
     
-    compress = nvl(compress, self.compress)
     compress = compression.normalize_encoding(compress)
 
     data_region = b"".join(
