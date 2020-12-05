@@ -92,7 +92,7 @@ class MapBuffer:
 
   def datasize(self):
     """Returns size of data region in bytes."""
-    return len(self.buffer) - 4 - len(self) * 2 * 8
+    return len(self.buffer) - HEADER_LENGTH - len(self) * 2 * 8
 
   def index(self):
     """Get an Nx2 numpy array representing the index."""
@@ -237,8 +237,10 @@ class MapBuffer:
       lengths = offsets[1:] - offsets[0:-1]
       if np.any(lengths < 0):
         raise ValidationError("Offsets are not sorted.")
-      if lengths.sum() + (len(buf) - offsets[-1]) != mapbuf.datasize():
-        raise ValidationError("Data length doesn't match offsets.")
+
+      length = lengths.sum() + (len(buf) - offsets[-1])
+      if length != mapbuf.datasize():
+        raise ValidationError(f"Data length doesn't match offsets. Predicted: {length} Data Size: {mapbuf.datasize()}")
 
       labels = index[:,0].astype(np.int64)
       labeldiff = labels[1:] - labels[0:-1]

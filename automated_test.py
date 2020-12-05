@@ -29,6 +29,6 @@ def test_full(compress):
 
   assert data == mbuf.todict()
 
-  # mbuf.validate()
+  mbuf.validate()
 
   assert len(mbuf.buffer) > HEADER_LENGTH
