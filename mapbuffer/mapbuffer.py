@@ -146,7 +146,7 @@ class MapBuffer:
 
   def __getitem__(self, label):
     index = self.index()
-    N = len(index)
+    N = np.uint64(len(index))
     if N == 0:
       return None
 
@@ -157,14 +157,15 @@ class MapBuffer:
     # leaves the door open for C++ implementations.
     # Since this is a format, if we don't support it from
     # the start, it'll never happen without headaches.
-    k = 1
-    while (k <= N):
-      k = 2 * k + (index[k-1,0] < label)
-    k >>= ffs(~k)
-    k -= 1
+    k = np.uint64(1)
+    one = np.uint64(1)
+    while k <= N:
+      k = (k << one) + (index[(k-one),0] < label)
+    k >>= np.uint64(ffs(~k))
+    k -= one
 
     if k < N and label == index[k,0]:
-      return self.getindex(k)
+      return self.getindex(int(k))
     
     raise KeyError("{} was not found.".format(label))
 
