@@ -10,6 +10,13 @@ from tqdm import tqdm
 from .lib import toiter
 from .exceptions import DecompressionError, CompressionError, UnsupportedCompressionType
 
+BYTE_MAPPING = {
+  b'none': None,
+  b'gzip': "gzip",
+  b'00br': "br",
+  b'zstd': "zstd", 
+}
+
 COMPRESSION_TYPES = [ 
   None, False, True,
   '', 'gzip', 'br', 'zstd'
@@ -71,8 +78,10 @@ def transcode(
     yield f
     
 def normalize_encoding(encoding):
-  if isinstance(encoding, STRING_TYPES):
+  if isinstance(encoding, str):
     encoding = encoding.lower()
+  elif isinstance(encoding, bytes):
+    return BYTE_MAPPING[encoding]
 
   if encoding in (None, False, '', 0):
     return None

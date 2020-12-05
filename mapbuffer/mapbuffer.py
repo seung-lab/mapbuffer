@@ -27,16 +27,19 @@ Simple Example:
   >>> b'abc'
 """
 from .lib import nvl
+from . import compression
 
 import numpy as np
 
 FORMAT_VERSION = 0
-MAGIC_NUMBERS = b"mapbuf"
+MAGIC_NUMBERS = b"mapbufr"
+HEADER_LENGTH = 16
 
 class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   def __init__(
     self, data=None, dtype=np.int64, 
+    compress=None,
     tobytesfn=None, frombytesfn=None
   ):
     """
@@ -56,7 +59,7 @@ class MapBuffer:
     self.buffer = None
 
     if isinstance(data, dict):
-      self.buffer = self.dict2buf(data)
+      self.buffer = self.dict2buf(data, compress)
     elif isinstance(data, bytes):
       self.buffer = data
     else:
@@ -64,7 +67,17 @@ class MapBuffer:
 
   def __len__(self):
     """Returns number of keys."""
-    return int.from_bytes(self.buffer[:4], byteorder="little", signed=False)
+    return int.from_bytes(self.buffer[12:16], byteorder="little", signed=False)
+
+  @property
+  def compress(self):
+    return compression.normalize_encoding(
+      self.buffer[8:12]
+    )
+
+  @property
+  def format_version(self):
+    return self.buffer[len(MAGIC_NUMBERS)]
 
   def __iter__(self):
     yield from self.keys()
@@ -77,7 +90,7 @@ class MapBuffer:
     """Get an Nx2 numpy array representing the index."""
     N = len(self)
     index_length = 2 * N * 8
-    index = self.buffer[4:index_length+4]
+    index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
     return np.frombuffer(index, dtype=np.uint64).reshape((N,2))
 
   def keys(self):
@@ -105,6 +118,10 @@ class MapBuffer:
       value = self.buffer[offset:next_offset]
     else:
       value = self.buffer[offset:]
+
+    encoding = self.compress
+    if encoding:
+      value = compression.decompress(value, encoding, str(index[i,0]))
 
     if self.frombytesfn:
       value = self.frombytesfn(value)
@@ -135,7 +152,7 @@ class MapBuffer:
     
     raise KeyError("{} was not found.".format(label))
 
-  def dict2buf(self, data, tobytesfn=None):
+  def dict2buf(self, data, compress=None, tobytesfn=None):
     """Structure [ index length, sorted index, data ]"""
     labels = np.array([ int(lbl) for lbl in data.keys() ], dtype=self.dtype)
     labels.sort()
@@ -152,12 +169,24 @@ class MapBuffer:
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
     
-    data_region = b"".join(( tobytesfn(data[label]) for label in labels ))
-    index[1] = 4 + index_length * 8
+    compress = nvl(compress, self.compress)
+    compress = compression.normalize_encoding(compress)
+
+    data_region = b"".join(
+      ( compression.compress(tobytesfn(data[label]), method=compress) for label in labels )
+    )
+    index[1] = HEADER_LENGTH + index_length * 8
     for i, label in zip(range(1, len(labels)), labels):
       index[i*2 + 1] = index[(i-1)*2 + 1] + len(data[labels[i-1]])
 
-    return MAGIC_NUMBERS + bytes([ FORMAT_VERSION ]) + N_region + index.tobytes() + data_region
+    if compress is None:
+      compress = "none"
+
+    return (
+      MAGIC_NUMBERS + bytes([ FORMAT_VERSION ]) 
+      + compress.zfill(4).encode("ascii")
+      + N_region + index.tobytes() + data_region
+    )
 
   def todict(self):
     return { label: val for label, val in self.items() }
@@ -173,6 +202,15 @@ class MapBuffer:
     mapbuf = MapBuffer(buf)
     index = mapbuf.index()
     if len(index) != len(mapbuf):
+      return False
+
+    if buf[:len(MAGIC_NUMBERS)] != MAGIC_NUMBERS:
+      return False
+
+    if mapbuf.format_version not in (0,):
+      return False
+
+    if mapbuf.compress not in compression.BYTE_MAPPING:
       return False
 
     offsets = index[:,1].astype(np.int64)
