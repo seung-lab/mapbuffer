@@ -152,21 +152,19 @@ class MapBuffer:
 
     label = np.uint64(label)
 
-    first, last = 0, N
-    count = N
-    while count > 0:
-      i = first
-      step = count // 2
-      i += step
-      if index[i,0] < label:
-        i += 1
-        first = i
-        count -= step + 1
-      else:
-        count = step
+    # Cache aware Binary search using eytzinger ordering
+    # not necessarily faster in Python, but
+    # leaves the door open for C++ implementations.
+    # Since this is a format, if we don't support it from
+    # the start, it'll never happen without headaches.
+    k = 1
+    while (k <= N):
+      k = 2 * k + (index[k-1,0] < label)
+    k >>= ffs(~k)
+    k -= 1
 
-    if first < N and label == index[first,0]:
-      return self.getindex(first)
+    if k < N and label == index[k,0]:
+      return self.getindex(k)
     
     raise KeyError("{} was not found.".format(label))
 
@@ -174,6 +172,11 @@ class MapBuffer:
     """Structure [ index length, sorted index, data ]"""
     labels = np.array([ int(lbl) for lbl in data.keys() ], dtype=self.dtype)
     labels.sort()
+
+    out = np.zeros((len(labels),), dtype=np.uint64)
+    eytzinger(labels, out)
+    labels = out
+
     N = len(labels)
     N_region = N.to_bytes(4, byteorder="little", signed=False)
 
@@ -246,12 +249,26 @@ class MapBuffer:
       if length != mapbuf.datasize():
         raise ValidationError(f"Data length doesn't match offsets. Predicted: {length} Data Size: {mapbuf.datasize()}")
 
-      labels = index[:,0].astype(np.int64)
-      labeldiff = labels[1:] - labels[0:-1]
-      if np.any(labeldiff < 1):
-        raise ValidationError("Labels aren't sorted.")
+      # labels = index[:,0].astype(np.int64)
+      # labeldiff = labels[1:] - labels[0:-1]
+      # if np.any(labeldiff < 1):
+      #   raise ValidationError("Labels aren't sorted.")
     elif len(buf) != HEADER_LENGTH:
       raise ValidationError("Format is longer than header for zero data.")
 
     return True
+
+def eytzinger(inpt, output, i = 0, k = 1):
+  if k <= len(inpt):
+    i = eytzinger(inpt, output, i, 2 * k)
+    output[k - 1] = inpt[i]
+    i += 1
+    i = eytzinger(inpt, output,i, 2 * k + 1)
+  return i
+
+def ffs(x):
+  """Returns the index, counting from 1, of the
+  least significant set bit in `x`.
+  """
+  return int(x & -x).bit_length()
 
