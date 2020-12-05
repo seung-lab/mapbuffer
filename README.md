@@ -35,7 +35,7 @@ Therefore, this method was developed to skip parsing the dictionaries and rapidl
 The byte string format consists of a 16 byte header, an index, and a series of (possibily individually compressed) serialized objects.
 
 ```
-HEADER|INDEX|DATA REGION
+HEADER|INDEX|DATA_REGION
 ```
 
 ### Header 
@@ -45,6 +45,8 @@ b'mapbufr' (7b)|FORMAT_VERSION (uint8)|COMPRESSION_TYPE (4b)|INDEX_SIZE (uint32)
 ```
 
 Valid compression types: `b'none', b'gzip', b'00br', b'zstd', b'lzma'`
+
+Example: `b'mapbufr0gzip1024'` meaning version 0 format, gzip compressed, 1024 keys.
 
 ### Index
 
