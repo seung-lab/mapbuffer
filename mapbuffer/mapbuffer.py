@@ -153,7 +153,7 @@ class MapBuffer:
     label = np.uint64(label)
 
     # Cache aware Binary search using eytzinger ordering
-    # not necessarily faster in Python, but
+    # not necessarily faster in Python (1.5x slower?), but
     # leaves the door open for C++ implementations.
     # Since this is a format, if we don't support it from
     # the start, it'll never happen without headaches.
