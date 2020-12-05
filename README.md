@@ -1,6 +1,6 @@
 # mapbuffer
 
-Map of integers to binary buffers requiring near zero parsing.
+Serializable map of integers to bytes with near zero parsing.
 
 ```python
 from mapbuffer import MapBuffer
