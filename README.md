@@ -46,7 +46,7 @@ b'mapbufr' (7b)|FORMAT_VERSION (uint8)|COMPRESSION_TYPE (4b)|INDEX_SIZE (uint32)
 
 Valid compression types: `b'none', b'gzip', b'00br', b'zstd', b'lzma'`
 
-Example: `b'mapbufr0gzip1024'` meaning version 0 format, gzip compressed, 1024 keys.
+Example: `b'mapbufr\x00gzip\x00\x00\x04\x00'` meaning version 0 format, gzip compressed, 1024 keys.
 
 ### Index
 
