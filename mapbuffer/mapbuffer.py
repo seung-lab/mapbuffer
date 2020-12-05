@@ -38,8 +38,7 @@ HEADER_LENGTH = 16
 class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   def __init__(
-    self, data=None, dtype=np.int64, 
-    compress=None,
+    self, data=None, compress=None,
     tobytesfn=None, frombytesfn=None
   ):
     """
@@ -55,9 +54,9 @@ class MapBuffer:
     """
     self.tobytesfn = tobytesfn
     self.frombytesfn = frombytesfn
-    self.dtype = dtype
+    self.dtype = np.uint64
     self.buffer = None
-    
+
     self._index = None
     self._compress = None
 
