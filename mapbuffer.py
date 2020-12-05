@@ -161,6 +161,9 @@ class MapBuffer:
   def tobytes(self):
     return self.buffer
 
+  def validate(self):
+    return self.validate_buffer(self.buffer)
+
   @staticmethod
   def validate_buffer(buf):
     mapbuf = MapBuffer(buf)
