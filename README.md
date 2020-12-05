@@ -84,6 +84,5 @@ The concept here was inspired by Flatbuffers.Flexbuffers, however the Python imp
 4. Compression is built in to the structure.
 5. Interface has a lot of syntatic sugar to simulate dictionaries.
 
-
-
+Link: https://google.github.io/flatbuffers/flexbuffers.html
 
