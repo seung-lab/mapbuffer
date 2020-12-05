@@ -26,8 +26,12 @@ Simple Example:
 
   >>> b'abc'
 """
+from .lib import nvl
 
 import numpy as np
+
+FORMAT_VERSION = 0
+MAGIC_NUMBERS = b"mapbuf"
 
 class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
@@ -153,7 +157,7 @@ class MapBuffer:
     for i, label in zip(range(1, len(labels)), labels):
       index[i*2 + 1] = index[(i-1)*2 + 1] + len(data[labels[i-1]])
 
-    return N_region + index.tobytes() + data_region
+    return MAGIC_NUMBERS + bytes([ FORMAT_VERSION ]) + N_region + index.tobytes() + data_region
 
   def todict(self):
     return { label: val for label, val in self.items() }
@@ -184,15 +188,6 @@ class MapBuffer:
       return False
 
     return True
-    
-def nvl(*args):
-  """Return the leftmost argument that is not None."""
-  if len(args) < 2:
-    raise IndexError("nvl takes at least two arguments.")
-  for arg in args:
-    if arg is not None:
-      return arg
-  return args[-1]
 
 # x = MapBuffer({ 1: b'123', 5: b'456', 4: b'789' }, frombytesfn=lambda x: int(x))
 # print(x.buffer)

@@ -1,0 +1,5 @@
+brotli
+deflate>=0.2.0
+numpy
+tqdm
+zstandard
