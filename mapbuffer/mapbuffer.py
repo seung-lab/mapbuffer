@@ -38,6 +38,10 @@ HEADER_LENGTH = 16
 
 class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
+  __slots__ = (
+    "data", "tobytesfn", "frombytesfn", 
+    "dtype", "buffer", "_index", "_compress"
+  )
   def __init__(
     self, data=None, compress=None,
     tobytesfn=None, frombytesfn=None
