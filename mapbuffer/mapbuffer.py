@@ -150,11 +150,15 @@ class MapBuffer:
     if N == 0:
       return None
 
+    # Important for speed to ensure all types match
+    # however the numpy type is fickle and keeps
+    # converting itself to a float64 if not everything
+    # is a matching type.
     label = np.uint64(label)
 
     # Cache aware Binary search using eytzinger ordering
     # not necessarily faster in Python (1.5x slower?), but
-    # leaves the door open for C++ implementations.
+    # leaves the door open for C/C++ implementations.
     # Since this is a format, if we don't support it from
     # the start, it'll never happen without headaches.
     k = np.uint64(1)
@@ -175,7 +179,7 @@ class MapBuffer:
     labels.sort()
 
     out = np.zeros((len(labels),), dtype=np.uint64)
-    eytzinger(labels, out)
+    eytzinger_sort(labels, out)
     labels = out
 
     N = len(labels)
@@ -250,6 +254,7 @@ class MapBuffer:
       if length != mapbuf.datasize():
         raise ValidationError(f"Data length doesn't match offsets. Predicted: {length} Data Size: {mapbuf.datasize()}")
 
+      # TODO: rewrite check to ensure eytzinger order
       # labels = index[:,0].astype(np.int64)
       # labeldiff = labels[1:] - labels[0:-1]
       # if np.any(labeldiff < 1):
@@ -259,19 +264,30 @@ class MapBuffer:
 
     return True
 
-# Function c/o https://algorithmica.org/en/eytzinger
-def eytzinger(inpt, output, i = 0, k = 1):
+# TODO: rewrite as a stack to prevent possible stackoverflows
+def eytzinger_sort(inpt, output, i = 0, k = 1):
+  """
+  Takes an ascendingly sorted input and 
+  an equal sized output buffer into which to 
+  rewrite the input in eytzinger order.
+
+  Modified from:
+  https://algorithmica.org/en/eytzinger
+  """
   if k <= len(inpt):
-    i = eytzinger(inpt, output, i, 2 * k)
+    i = eytzinger_sort(inpt, output, i, 2 * k)
     output[k - 1] = inpt[i]
     i += 1
-    i = eytzinger(inpt, output,i, 2 * k + 1)
+    i = eytzinger_sort(inpt, output,i, 2 * k + 1)
   return i
 
-# function c/o https://stackoverflow.com/questions/5520655/return-index-of-least-significant-bit-in-python
 def ffs(x):
-  """Returns the index, counting from 1, of the
+  """
+  Returns the index, counting from 1, of the
   least significant set bit in `x`.
+
+  Modified from: 
+  https://stackoverflow.com/questions/5520655/return-index-of-least-significant-bit-in-python
   """
   return int(x & -x).bit_length()
 
