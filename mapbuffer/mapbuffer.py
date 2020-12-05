@@ -57,6 +57,9 @@ class MapBuffer:
     self.frombytesfn = frombytesfn
     self.dtype = dtype
     self.buffer = None
+    
+    self._index = None
+    self._compress = None
 
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, compress)
@@ -71,9 +74,13 @@ class MapBuffer:
 
   @property
   def compress(self):
-    return compression.normalize_encoding(
+    if self._compress is not None:
+      return self._compress
+
+    self._compress = compression.normalize_encoding(
       self.buffer[8:12]
     )
+    return self._compress
 
   @property
   def format_version(self):
@@ -88,10 +95,14 @@ class MapBuffer:
 
   def index(self):
     """Get an Nx2 numpy array representing the index."""
+    if self._index is not None:
+      return self._index
+
     N = len(self)
     index_length = 2 * N * 8
     index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
-    return np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+    self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+    return self._index
 
   def keys(self):
     for label, offset in self.index():
@@ -133,6 +144,8 @@ class MapBuffer:
     N = len(index)
     if N == 0:
       return None
+
+    label = np.uint64(label)
 
     first, last = 0, N
     count = N
