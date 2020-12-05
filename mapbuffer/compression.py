@@ -1,8 +1,9 @@
 import copy
 import sys
 
-import deflate
 import brotli
+import deflate
+import lzma
 import zstandard as zstd
 
 from tqdm import tqdm
@@ -15,11 +16,13 @@ BYTE_MAPPING = {
   b'gzip': "gzip",
   b'00br': "br",
   b'zstd': "zstd", 
+  b'lzma': "lzma",
 }
 
 COMPRESSION_TYPES = [ 
   None, False, True,
-  '', 'gzip', 'br', 'zstd'
+  '', 'gzip', 'br', 'zstd',
+  'lzma'
 ]
 
 def transcode(
@@ -117,6 +120,8 @@ def decompress(content, encoding, filename='N/A'):
       return brotli_decompress(content)
     elif encoding == 'zstd':
       return zstd_decompress(content)
+    elif encoding == 'lzma':
+      return lzma_decompress(content)
   except DecompressionError as err:
     print("Filename: " + str(filename))
     raise
@@ -149,6 +154,8 @@ def compress(content, method='gzip', compress_level=None):
     return brotli_compress(content, quality=compress_level)
   elif method == 'zstd':
     return zstd_compress(content, compress_level)
+  elif method == 'lzma':
+    return lzma.compress(content)
   
   raise ValueError(str(method) + ' is not currently supported. Supported Options: None, gzip, br')
 
@@ -201,6 +208,10 @@ def zstd_decompress(content):
   ctx = zstd.ZstdDecompressor()
   return ctx.decompress(content)
 
+def lzma_decompress(content):
+  if len(content) == 0:
+    raise DecompressionError('File contains zero bytes.')
+  return lzma.decompress(content)
 
 
 
