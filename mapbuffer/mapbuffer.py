@@ -75,7 +75,7 @@ class MapBuffer:
 
   @property
   def compress(self):
-    if self._compress is not None:
+    if self._compress:
       return self._compress
 
     self._compress = compression.normalize_encoding(
