@@ -258,6 +258,7 @@ class MapBuffer:
 
     return True
 
+# Function c/o https://algorithmica.org/en/eytzinger
 def eytzinger(inpt, output, i = 0, k = 1):
   if k <= len(inpt):
     i = eytzinger(inpt, output, i, 2 * k)
@@ -266,6 +267,7 @@ def eytzinger(inpt, output, i = 0, k = 1):
     i = eytzinger(inpt, output,i, 2 * k + 1)
   return i
 
+# function c/o https://stackoverflow.com/questions/5520655/return-index-of-least-significant-bit-in-python
 def ffs(x):
   """Returns the index, counting from 1, of the
   least significant set bit in `x`.
