@@ -19,9 +19,13 @@ print(mb[2848]) # fast: almost zero parsing required
 
 >>> b'abc'
 
-mb = MapBuffer(binary, frombytesfn=lambda x: x.decode("utf8"))
-
-
+# assume data are a set of gzipped utf8 encoded strings
+mb = MapBuffer(binary, 
+    compress="gzip",
+    frombytesfn=lambda x: x.decode("utf8")
+)
+print(mb[2848])
+>>> "abc" # bytes were automatically decoded
 ```
 
 MapBuffer is designed to allow you to store dictionaries mapping integers to binary buffers in a serialized format and then read that back in and use it without requiring an expensive parse of the entire dictionary. Instead, if you have a dictionary containing thousands of keys, but only need a few items from it you can extract them rapidly.  
