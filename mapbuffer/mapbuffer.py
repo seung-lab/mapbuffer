@@ -117,7 +117,7 @@ class MapBuffer:
     N = len(self)
     index = self.index()
     for i in range(N):
-      label = index[2*i]
+      label = index[i,0]
       value = self.getindex(i)
       yield (label, value)
 
@@ -192,12 +192,17 @@ class MapBuffer:
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
 
+    bytes_data = { 
+      label: compression.compress(tobytesfn(val), method=compress) 
+      for label, val in data.items()
+    }
+
     data_region = b"".join(
-      ( compression.compress(tobytesfn(data[label]), method=compress) for label in labels )
+      ( bytes_data[label] for label in labels )
     )
     index[1] = HEADER_LENGTH + index_length * 8
     for i, label in zip(range(1, len(labels)), labels):
-      index[i*2 + 1] = index[(i-1)*2 + 1] + len(data[labels[i-1]])
+      index[i*2 + 1] = index[(i-1)*2 + 1] + len(bytes_data[labels[i-1]])
 
     return header + index.tobytes() + data_region
 
