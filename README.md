@@ -68,16 +68,21 @@ Example: `b'mapbufr\x00gzip\x00\x00\x04\x00'` meaning version 0 format, gzip com
 
 The index is an array of label and offset pairs (both uint64) that tell you where in the byte stream to start reading. The read length can be determined by referencing the next offset which are guaranteed to be in ascending order. The labels however, are written in Eyztinger order to enable cache-aware binary search.
 
-The index can be consulted by conducting an Eyztinger binary search over the labels to find the correct offset.
+The index can be consulted by conducting an Eytzinger binary search over the labels to find the correct offset.
 
 ### Data Region
 
 The data objects are serialized to bytes and compressed individually if the header indicates they should be. They are then concatenated in the same order the index specifies.
 
+## Versus Flexbuffers
 
+The concept here was inspired by Flatbuffers.Flexbuffers, however the Python implementation (not the C++ implementation) there was a little slow as of this writing. We also add a few differences: 
 
-
-
+1. Eytzinger ordering of labels to potentially achieve even higher read speeds
+2. Structure optimized for network range reads.
+3. Integer keys only.
+4. Compression is built in to the structure.
+5. Interface has a lot of syntatic sugar to simulate dictionaries.
 
 
 
