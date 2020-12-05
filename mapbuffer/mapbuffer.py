@@ -26,6 +26,7 @@ Simple Example:
 
   >>> b'abc'
 """
+from .exceptions import ValidationError
 from .lib import nvl
 from . import compression
 
@@ -44,6 +45,7 @@ class MapBuffer:
     """
     data: dict (int->byte serializable object) or bytes 
       (representing a MapBuffer)
+    compress: 
     tobytesfn: function for converting dict values to byte strings
       if they are not already.
         e.g. lambda mystr: mystr.encode("utf8")
@@ -171,8 +173,17 @@ class MapBuffer:
     N = len(labels)
     N_region = N.to_bytes(4, byteorder="little", signed=False)
 
+    compress = compression.normalize_encoding(compress)
+    compress_header = nvl(compress, "none")
+
+    header = (
+      MAGIC_NUMBERS + bytes([ FORMAT_VERSION ]) 
+      + compress_header.zfill(4).encode("ascii") 
+      + N_region
+    )
+
     if N == 0:
-      return N_region
+      return header
 
     index_length = 2 * N
     index = np.zeros((index_length,), dtype=self.dtype)
@@ -180,8 +191,6 @@ class MapBuffer:
 
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
-    
-    compress = compression.normalize_encoding(compress)
 
     data_region = b"".join(
       ( compression.compress(tobytesfn(data[label]), method=compress) for label in labels )
@@ -190,14 +199,7 @@ class MapBuffer:
     for i, label in zip(range(1, len(labels)), labels):
       index[i*2 + 1] = index[(i-1)*2 + 1] + len(data[labels[i-1]])
 
-    if compress is None:
-      compress = "none"
-
-    return (
-      MAGIC_NUMBERS + bytes([ FORMAT_VERSION ]) 
-      + compress.zfill(4).encode("ascii")
-      + N_region + index.tobytes() + data_region
-    )
+    return header + index.tobytes() + data_region
 
   def todict(self):
     return { label: val for label, val in self.items() }
@@ -213,33 +215,32 @@ class MapBuffer:
     mapbuf = MapBuffer(buf)
     index = mapbuf.index()
     if len(index) != len(mapbuf):
-      return False
+      raise ValidationError(f"Index size doesn't match. len(mapbuf): {len(mapbuf)}")
 
-    if buf[:len(MAGIC_NUMBERS)] != MAGIC_NUMBERS:
-      return False
+    magic = buf[:len(MAGIC_NUMBERS)]
+    if magic != MAGIC_NUMBERS:
+      raise ValidationError(f"Magic number mismatch. Expected: {MAGIC_NUMBERS} Got: {magic}")
 
     if mapbuf.format_version not in (0,):
-      return False
+      raise ValidationError(f"Unsupported format version. Got: {mapbuf.format_version}")
 
-    if mapbuf.compress not in compression.BYTE_MAPPING:
-      return False
+    if mapbuf.compress not in compression.COMPRESSION_TYPES:
+      raise ValidationError(f"Unsupported compression format. Got: {mapbuf.compress}")
 
-    offsets = index[:,1].astype(np.int64)
-    lengths = offsets[1:] - offsets[0:-1]
-    if np.any(lengths < 0):
-      return False
-    if lengths.sum() + (len(buf) - offsets[-1]) != mapbuf.datasize():
-      return False
+    if len(mapbuf) > 0:
+      offsets = index[:,1].astype(np.int64)
+      lengths = offsets[1:] - offsets[0:-1]
+      if np.any(lengths < 0):
+        raise ValidationError("Offsets are not sorted.")
+      if lengths.sum() + (len(buf) - offsets[-1]) != mapbuf.datasize():
+        raise ValidationError("Data length doesn't match offsets.")
 
-    labels = index[:,0].astype(np.int64)
-    labeldiff = labels[1:] - labels[0:-1]
-    if np.any(labeldiff < 1):
-      return False
+      labels = index[:,0].astype(np.int64)
+      labeldiff = labels[1:] - labels[0:-1]
+      if np.any(labeldiff < 1):
+        raise ValidationError("Labels aren't sorted.")
+    elif len(buf) != HEADER_LENGTH:
+      raise ValidationError("Format is longer than header for zero data.")
 
     return True
-
-# x = MapBuffer({ 1: b'123', 5: b'456', 4: b'789' }, frombytesfn=lambda x: int(x))
-# print(x.buffer)
-# print(list(x.keys()))
-# print(x[5])
 

@@ -1,10 +1,10 @@
-class DecompressionError(Exception):
+class DecompressionError(BaseException):
   """
   Decompression failed.
   """
   pass
 
-class CompressionError(Exception):
+class CompressionError(BaseException):
   """
   Compression failed.
   """
@@ -15,4 +15,7 @@ class UnsupportedCompressionType(ValueError):
   Raised when attempting to use a compression type which is unsupported
   by the storage interface.
   """
+  pass
+
+class ValidationError(BaseException):
   pass
