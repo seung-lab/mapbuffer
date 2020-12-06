@@ -44,6 +44,12 @@ Therefore, this method was developed to skip parsing the dictionaries and rapidl
 
 ## Design
 
+The MapBuffer object is designed to translate dictionaries into a serialized byte buffer and extract objects directly from it by consulting an index. The index consists of a series of key-value pairs where the values are indices into the byte stream where each object's data stream starts. 
+
+This means that the format is best regarded as immutable once written. It can be easily converted into a standard dictionary at will. The main purpose is for reading just a few objects out of a larger stream of data.
+
+## Format
+
 The byte string format consists of a 16 byte header, an index, and a series of (possibily individually compressed) serialized objects.
 
 ```
