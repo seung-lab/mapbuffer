@@ -217,7 +217,7 @@ class MapBuffer:
     for i, label in zip(range(1, len(labels)), labels):
       index[i*2 + 1] = index[(i-1)*2 + 1] + len(bytes_data[labels[i-1]])
 
-    return header + index.tobytes() + data_region
+    return b"".join([ header, index.tobytes(), data_region ])
 
   def todict(self):
     return { label: val for label, val in self.items() }
