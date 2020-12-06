@@ -117,7 +117,7 @@ class MapBuffer:
 
     return value  
 
-  def __getitem__(self, label):
+  def find_index_position(self, label):
     index = self.index()
     N = np.uint64(len(index))
     if N == 0:
@@ -142,9 +142,33 @@ class MapBuffer:
     k -= one
 
     if k < N and label == index[k,0]:
-      return self.getindex(int(k))
+      return int(k)
+
+    return None    
+
+  def get(self, label, *args, **kwargs):
+    pos = self.find_index_position(label)
+    if pos is None: # try to get default argument
+      try:
+        return args[0]
+      except IndexError:
+        try:
+          return kwargs.get("default")
+        except KeyError:
+          raise KeyError("{} was not found.".format(label))
     
-    raise KeyError("{} was not found.".format(label))
+    return self.getindex(pos)
+
+  def __contains__(self, label):
+    pos = self.find_index_position(label)
+    return pos is not None
+
+  def __getitem__(self, label):
+    pos = self.find_index_position(label)
+    if pos is not None:
+      return self.getindex(pos)
+    else:
+      raise KeyError("{} was not found.".format(label))
 
   def dict2buf(self, data, compress=None, tobytesfn=None):
     """Structure [ index length, sorted index, data ]"""

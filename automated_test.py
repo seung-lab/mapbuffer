@@ -26,6 +26,8 @@ def test_full(compress):
 
   for key in data:
     assert data[key] == mbuf[key]
+    assert data[key] == mbuf.get(key)
+    assert key in mbuf
 
   assert data == mbuf.todict()
 
