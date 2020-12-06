@@ -1,3 +1,5 @@
+[![PyPI version](https://badge.fury.io/py/mapbuffer.svg)](https://badge.fury.io/py/mapbuffer)
+
 # mapbuffer
 
 Serializable map of integers to bytes with near zero parsing.
