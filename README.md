@@ -48,6 +48,14 @@ The MapBuffer object is designed to translate dictionaries into a serialized byt
 
 This means that the format is best regarded as immutable once written. It can be easily converted into a standard dictionary at will. The main purpose is for reading just a few objects out of a larger stream of data.
 
+## Benchmark
+
+The following benchmark was derived from running perf.py.
+
+<p style="font-style: italics;" align="center">
+<img height=512 src="https://raw.githubusercontent.com/seung-lab/mapbuffer/main/ten_percent_select.png" />
+</p>
+
 ## Format
 
 The byte string format consists of a 16 byte header, an index, and a series of (possibily individually compressed) serialized objects.
