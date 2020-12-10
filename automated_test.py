@@ -12,6 +12,13 @@ def test_empty(compress):
   assert mbuf.validate()
   assert mbuf.compress == compress
 
+  try:
+    mbuf[1000]
+    assert False
+  except KeyError:
+    pass
+
+
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd"))
 def test_full(compress):
   data = { 
