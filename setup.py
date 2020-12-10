@@ -1,4 +1,9 @@
 import setuptools
+import platform
+
+extra_compile_args = [ "-O3" ]
+if platform.system() == "Windows":
+  extra_compile_args = [ "/O2" ]
 
 setuptools.setup(
   setup_requires=['pbr'],
@@ -9,7 +14,7 @@ setuptools.setup(
       'mapbufferaccel',
       sources=[ 'mapbufferaccel.c' ],
       language='c',
-      extra_compile_args=[ "-O3" ],
+      extra_compile_args=extra_compile_args,
     )
   ],
   pbr=True
