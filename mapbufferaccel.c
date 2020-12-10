@@ -14,7 +14,13 @@ uint64_t c_eytzinger_binary_search(uint64_t x, uint64_t* array, size_t N) {
         k = 2 * k + (array[(k - 1) << 1] < x); 
     }
     k >>= ffs(~k);
-    return k - 1;
+    k -= 1;
+
+    if (k >= 0 && array[k << 1] == x) {
+        return k;
+    }
+
+    return -1;
 }
 
 static PyObject* eytzinger_binary_search(PyObject* self, PyObject *args) {
