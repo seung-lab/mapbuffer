@@ -38,6 +38,14 @@ def test_full(compress):
 
   assert data == mbuf.todict()
 
+  for i in range(2000):
+    if i not in data:
+      try:
+        print(mbuf[i])
+        assert False
+      except KeyError:
+        pass
+
   mbuf.validate()
 
   assert len(mbuf.buffer) > HEADER_LENGTH
