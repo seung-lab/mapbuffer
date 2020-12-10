@@ -40,8 +40,9 @@ def test_full(compress):
 
   for i in range(2000):
     if i not in data:
+      assert i not in mbuf
       try:
-        print(mbuf[i])
+        mbuf[i]
         assert False
       except KeyError:
         pass
