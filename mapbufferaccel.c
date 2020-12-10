@@ -5,6 +5,34 @@
 #include <Python.h>
 #include <stdint.h>
 
+#if defined _MSC_VER
+# include <intrin.h>
+#endif
+
+uint64_t mb_ffs (uint64_t x) {
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+   return __builtin_ffs(x);
+#elif defined _MSC_VER
+  /* _BitScanForward
+     <https://docs.microsoft.com/en-us/cpp/intrinsics/bitscanforward-bitscanforward64> */
+  unsigned long bit;
+  if (_BitScanForward (&bit, x)) {
+    return bit + 1;
+  }
+  return 0;
+#else 
+  if (x == 0) {
+    return 0;
+  }
+  for (uint64_t i = 0; i < 64; i++) {
+    if ((x >> i) & 0x1) {
+        return i + 1;
+    }
+  }
+  return 0;
+#endif
+}
+
 uint64_t c_eytzinger_binary_search(uint64_t x, uint64_t* array, size_t N) {
     // int64_t block_size = 8; // two cache lines 64 * 2 / 8
     uint64_t k = 1;
@@ -13,7 +41,7 @@ uint64_t c_eytzinger_binary_search(uint64_t x, uint64_t* array, size_t N) {
         // multiply by 2 b/c index is [label, pos, label, pos]
         k = 2 * k + (array[(k - 1) << 1] < x); 
     }
-    k >>= ffs(~k);
+    k >>= mb_ffs(~k);
     k -= 1;
 
     if (k >= 0 && array[k << 1] == x) {
