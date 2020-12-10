@@ -9,12 +9,6 @@ ENV CXX "g++"
 
 RUN rm -rf *.so build __pycache__ dist 
 
-RUN /opt/python/cp27-cp27m/bin/pip2.7 install pip --upgrade
-RUN /opt/python/cp27-cp27m/bin/pip2.7 install numpy
-RUN /opt/python/cp27-cp27m/bin/pip2.7 install -r requirements_dev.txt
-RUN /opt/python/cp27-cp27m/bin/python2.7 setup.py develop
-RUN /opt/python/cp27-cp27m/bin/python2.7 -m pytest -v -x automated_test.py
-
 RUN /opt/python/cp35-cp35m/bin/pip3.5 install pip --upgrade
 RUN /opt/python/cp35-cp35m/bin/pip3.5 install numpy 
 RUN /opt/python/cp35-cp35m/bin/pip3.5 install -r requirements_dev.txt
