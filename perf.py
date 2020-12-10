@@ -26,7 +26,7 @@ def test(datasize):
     dat[label]
   t = time.time() - s
 
-  pf.write(f"{datasize}\t{t:.5f}\n")
+  pf.write(f"{datasize}\t{t*1000:.5f}\n")
   pf.flush()
 
   mbuf = MapBuffer(data)
@@ -37,7 +37,7 @@ def test(datasize):
   for label in labels:
     mbuf[label]
   t = time.time() - s 
-  mf.write(f"{datasize}\t{t:.5f}\n")
+  mf.write(f"{datasize}\t{t*1000:.5f}\n")
   mf.flush()
 
 for i in range(1,10000,50):
