@@ -1,3 +1,6 @@
+import mmap 
+import io
+
 from .exceptions import ValidationError
 from .lib import nvl
 from . import compression
@@ -43,10 +46,12 @@ class MapBuffer:
 
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, compress)
-    elif isinstance(data, bytes):
+    elif isinstance(data, io.IOBase):
+      self.buffer = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
+    elif isinstance(data, (bytes, mmap.mmap)):
       self.buffer = data
     else:
-      raise TypeError("data must be a dict or bytes. Got: " + str(type(dict)))
+      raise TypeError("data must be a dict, bytes, file, or mmap. Got: " + str(type(data)))
 
   def __len__(self):
     """Returns number of keys."""
