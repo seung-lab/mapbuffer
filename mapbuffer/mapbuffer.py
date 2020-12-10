@@ -4,6 +4,8 @@ from . import compression
 
 import numpy as np
 
+import mapbufferaccel
+
 FORMAT_VERSION = 0
 MAGIC_NUMBERS = b"mapbufr"
 HEADER_LENGTH = 16
@@ -119,32 +121,15 @@ class MapBuffer:
 
   def find_index_position(self, label):
     index = self.index()
-    N = np.uint64(len(index))
+    N = len(index)
     if N == 0:
       return None
 
-    # Important for speed to ensure all types match
-    # however the numpy type is fickle and keeps
-    # converting itself to a float64 if not everything
-    # is a matching type.
-    label = np.uint64(label)
+    k = mapbufferaccel.eytzinger_binary_search(label, index)
+    if k >= 0 and k < N:
+      return k
 
-    # Cache aware Binary search using eytzinger ordering
-    # not necessarily faster in Python (1.5x slower?), but
-    # leaves the door open for C/C++ implementations.
-    # Since this is a format, if we don't support it from
-    # the start, it'll never happen without headaches.
-    k = np.uint64(1)
-    one = np.uint64(1)
-    while k <= N:
-      k = (k << one) + (index[(k-one),0] < label)
-    k >>= np.uint64(ffs(~k))
-    k -= one
-
-    if k < N and label == index[k,0]:
-      return int(k)
-
-    return None    
+    return None
 
   def get(self, label, *args, **kwargs):
     pos = self.find_index_position(label)
