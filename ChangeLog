@@ -1,6 +1,25 @@
 CHANGES
 =======
 
+0.2.0
+-----
+
+* chore: update unit in perf tests from sec to msec
+* test: ensure "not in" is tested as well as "in"
+* chore: add .DS\_Store to gitignore
+* chore: add changelog authors
+* chore: add requirements\_dev.txt
+* chore: add appveyor
+* chore: introduce tox, drop py27
+* chore: add build system
+* test: check for missing keys
+* fix: ensure missing keys return -1
+* docs: update perf chart for c-ext
+* perf: use C ext to improve index lookup
+* test: ensure that empty buffer key access errors
+* feat: add \_\_contains\_\_ and get
+* docs: add version badge
+
 0.1.1
 -----
 
