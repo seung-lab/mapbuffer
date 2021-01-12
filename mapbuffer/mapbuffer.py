@@ -267,14 +267,3 @@ def eytzinger_sort(inpt, output, i = 0, k = 1):
     i += 1
     i = eytzinger_sort(inpt, output,i, 2 * k + 1)
   return i
-
-def ffs(x):
-  """
-  Returns the index, counting from 1, of the
-  least significant set bit in `x`.
-
-  Modified from: 
-  https://stackoverflow.com/questions/5520655/return-index-of-least-significant-bit-in-python
-  """
-  return int(x & -x).bit_length()
-
