@@ -103,3 +103,32 @@ def duplicates(lst):
     seen.add(elem)
   return set(dupes)
 
+def eytzinger_sort(inpt, output):
+  stack = [ (0,1) ]
+
+  while stack:
+    i, k = stack.pop()
+    if k > len(inpt):
+      continue
+    output[k - 1] = inpt[i]
+    stack.append( (i, 2 * k) )
+    stack.append( (i, 2 * k + 1) )
+
+
+
+# # TODO: rewrite as a stack to prevent possible stackoverflows
+# def eytzinger_sort(inpt, output, i = 0, k = 1):
+#   """
+#   Takes an ascendingly sorted input and 
+#   an equal sized output buffer into which to 
+#   rewrite the input in eytzinger order.
+
+#   Modified from:
+#   https://algorithmica.org/en/eytzinger
+#   """
+#   if k <= len(inpt):
+#     i = eytzinger_sort(inpt, output, i, 2 * k)
+#     output[k - 1] = inpt[i]
+#     i += 1
+#     i = eytzinger_sort(inpt, output,i, 2 * k + 1)
+#   return i
