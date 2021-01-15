@@ -52,10 +52,21 @@ def test_full(compress):
   assert len(mbuf.buffer) > MapBuffer.HEADER_LENGTH
 
 def test_mapint():
-  data = { i:i+1 for i in range(10) }
+  N = 20
+  data = { i:i+1 for i in range(N) }
 
   mi = MapInt(data)
-  print(mi)
+
+  for i in range(N):
+    assert mi[i] == data[i]
+
+  try:
+    mi[N]
+    assert False
+  except KeyError:
+    pass
+
+
 
 
 

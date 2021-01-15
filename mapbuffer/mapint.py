@@ -26,6 +26,9 @@ class MapInt:
   FORMAT_VERSION = 0
   MAGIC_NUMBERS = b"mapint"
   HEADER_LENGTH = 12
+  __slots__ = (
+    "buffer", "index", "_key_type", "_value_type"
+  )
   def __init__(
     self, data=None
     # key_type="uint64", value_type="uint64"
@@ -44,7 +47,6 @@ class MapInt:
     # types.
     key_type = np.uint64
     value_type = np.uint64
-    self._index = None
 
     self._key_type = None
     self._value_type = None
@@ -57,6 +59,15 @@ class MapInt:
       self.buffer = data
     else:
       raise TypeError("data must be a dict, bytes, file, or mmap. Got: " + str(type(data)))
+
+    self.index = self.decode_index()
+
+  def decode_index(self):
+    N = len(self)
+    header_len = MapInt.HEADER_LENGTH
+    index_length = 2 * N * np.dtype(self.key_type).itemsize
+    index = self.buffer[header_len:index_length+header_len]
+    return np.frombuffer(index, dtype=self.key_type).reshape((N,2))
 
   def __len__(self):
     """Returns number of keys."""
@@ -108,54 +119,31 @@ class MapInt:
   def __iter__(self):
     yield from self.keys()
 
-  def index(self):
-    """Get an Nx2 numpy array representing the index."""
-    if self._index is not None:
-      return self._index
-
-    header_len = MapInt.HEADER_LENGTH
-
-    N = len(self)
-    index_length = 2 * N * np.dtype(self.key_type).itemsize
-    index = self.buffer[header_len:index_length+header_len]
-    self._index = np.frombuffer(index, dtype=self.key_type).reshape((N,2))
-    return self._index
-
   def keys(self):
-    for key, value in self.index():
+    for key, value in self.index:
       yield key
 
   def values(self):
-    for label, value in self.index():
+    for label, value in self.index:
       yield value
 
   def items(self):
     N = len(self)
-    index = self.index()
+    index = self.index
     for i in range(N):
       label = index[i,0]
       value = index[i,1].view(self.value_type)
       yield (label, value)
 
   def getindex(self, i):
-    index = self.index()
-    return index[i,1].view(self.value_type)
+    return self.index[i,1].view(self.value_type)
 
   def find_index_position(self, label):
-    index = self.index()
-    N = len(index)
-    if N == 0:
-      return None
-
-    k = mapbufferaccel.eytzinger_binary_search(label, index)
-    if k >= 0 and k < N:
-      return k
-
-    return None
+    return mapbufferaccel.eytzinger_binary_search(label, self.index)
 
   def get(self, label, *args, **kwargs):
     pos = self.find_index_position(label)
-    if pos is None: # try to get default argument
+    if pos == -1: # try to get default argument
       try:
         return args[0]
       except IndexError:
@@ -167,13 +155,12 @@ class MapInt:
     return self.getindex(pos)
 
   def __contains__(self, label):
-    pos = self.find_index_position(label)
-    return pos is not None
+    return self.find_index_position(label) >= 0
 
   def __getitem__(self, label):
-    pos = self.find_index_position(label)
-    if pos is not None:
-      return self.getindex(pos)
+    pos = mapbufferaccel.eytzinger_binary_search(label, self.index)
+    if pos >= 0:
+      return self.index[pos,1].view(self.value_type)
     else:
       raise KeyError("{} was not found.".format(label))
 
