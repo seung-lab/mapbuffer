@@ -24,22 +24,27 @@ for k,v in DATA_TYPE.items():
   DATA_TYPE[v] = k
 
 class MapInt:
-  """Represents a usable int->bytes dictionary as a byte string."""
+  """Represents a usable int->int dictionary as a byte string."""
   def __init__(
-    self, data=None, 
-    key_type="int64", value_type="int64"
+    self, data=None
+    # key_type="uint64", value_type="uint64"
   ):
     """
     data: dict (number->number)
-    key_type: numpy dtype
-    value_type: numpy dtype
-
-    key type and value type must be of the same byte width and class 
-    e.g. integer, float, or complex. Signed and unsigned can be
-    mixed. In the future, other type combinations may be supported.
     """
+    # key_type: numpy dtype
+    # value_type: numpy dtype
+
+    # key type and value type must be of the same byte width and class 
+    # e.g. integer, float, or complex. Signed and unsigned can be
+    # mixed. In the future, other type combinations may be supported.
+
     self._index = None
-    self._key_type = None
+
+    # Need to rewrite C code to accept multiple
+    # types.
+    self._key_type = np.uint64
+    self._value_type = np.uint64
 
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, np.dtype(key_type), np.dtype(value_type))
@@ -241,8 +246,6 @@ class MapInt:
 
     if mapbuf.format_version not in (0,):
       raise ValidationError(f"Unsupported format version. Got: {mapbuf.format_version}")
-
-
 
     if len(mapbuf) == 0 and len(buf) != HEADER_LENGTH:
       raise ValidationError("Format is longer than header for zero data.")

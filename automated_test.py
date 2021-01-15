@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from mapbuffer import MapBuffer, HEADER_LENGTH
+from mapbuffer import MapBuffer
 import random
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd", "lzma"))
@@ -49,4 +49,6 @@ def test_full(compress):
 
   mbuf.validate()
 
-  assert len(mbuf.buffer) > HEADER_LENGTH
+  assert len(mbuf.buffer) > MapBuffer.HEADER_LENGTH
+
+# def test_

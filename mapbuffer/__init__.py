@@ -27,5 +27,5 @@ Simple Example:
   >>> b'abc'
 """
 
-from .mapbuffer import MapBuffer, HEADER_LENGTH, MAGIC_NUMBERS, FORMAT_VERSION
+from .mapbuffer import MapBuffer
 from .exceptions import *
