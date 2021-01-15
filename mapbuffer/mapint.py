@@ -10,21 +10,22 @@ import numpy as np
 
 import mapbufferaccel
 
-FORMAT_VERSION = 0
-MAGIC_NUMBERS = b"mapint"
-HEADER_LENGTH = 12
-
 DATA_TYPE = {
   np.unsignedinteger: 0,
   np.integer: 1,
   np.floating: 2,
   np.complex64: 3,
+  0: np.unsignedinteger,
+  1: np.integer,
+  2: np.floating,
+  3: np.complex64,
 }
-for k,v in DATA_TYPE.items():
-  DATA_TYPE[v] = k
 
 class MapInt:
   """Represents a usable int->int dictionary as a byte string."""
+  FORMAT_VERSION = 0
+  MAGIC_NUMBERS = b"mapint"
+  HEADER_LENGTH = 12
   def __init__(
     self, data=None
     # key_type="uint64", value_type="uint64"
@@ -39,12 +40,14 @@ class MapInt:
     # e.g. integer, float, or complex. Signed and unsigned can be
     # mixed. In the future, other type combinations may be supported.
 
-    self._index = None
-
     # Need to rewrite C code to accept multiple
     # types.
-    self._key_type = np.uint64
-    self._value_type = np.uint64
+    key_type = np.uint64
+    value_type = np.uint64
+    self._index = None
+
+    self._key_type = None
+    self._value_type = None
 
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, np.dtype(key_type), np.dtype(value_type))
@@ -57,11 +60,11 @@ class MapInt:
 
   def __len__(self):
     """Returns number of keys."""
-    return int.from_bytes(self.buffer[9:13], byteorder="little", signed=False)
+    return int.from_bytes(self.buffer[8:12], byteorder="little", signed=False)
 
   @property
   def format_version(self):
-    return self.buffer[len(MAGIC_NUMBERS)]
+    return self.buffer[len(MapInt.MAGIC_NUMBERS)]
 
   @property
   def key_type(self):
@@ -111,9 +114,11 @@ class MapInt:
     if self._index is not None:
       return self._index
 
+    header_len = MapInt.HEADER_LENGTH
+
     N = len(self)
     index_length = 2 * N * np.dtype(self.key_type).itemsize
-    index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
+    index = self.buffer[header_len:index_length+header_len]
     self._index = np.frombuffer(index, dtype=self.key_type).reshape((N,2))
     return self._index
 
@@ -203,15 +208,15 @@ class MapInt:
       else:
         raise TypeError(f"Type not supported: {dtype}")
 
-    dtype_byte = (type_id(key_type) << 5) | (type_id(value_type) << 2) | key_width
+    dtype_byte = (type_id(key_type) << 5) | (type_id(value_type) << 2) | int(math.log2(key_width))
 
     header = (
-      MAGIC_NUMBERS 
-      + bytes([ FORMAT_VERSION ]) 
+      MapInt.MAGIC_NUMBERS 
+      + bytes([ MapInt.FORMAT_VERSION ]) 
       + bytes([ dtype_byte ])
       + N_region
     )
-
+    
     if N == 0:
       return header
 
@@ -240,14 +245,17 @@ class MapInt:
     if len(index) != len(mapbuf):
       raise ValidationError(f"Index size doesn't match. len(mapbuf): {len(mapbuf)}")
 
-    magic = buf[:len(MAGIC_NUMBERS)]
-    if magic != MAGIC_NUMBERS:
-      raise ValidationError(f"Magic number mismatch. Expected: {MAGIC_NUMBERS} Got: {magic}")
+    magic = buf[:len(MapInt.MAGIC_NUMBERS)]
+    if magic != MapInt.MAGIC_NUMBERS:
+      raise ValidationError(f"Magic number mismatch. Expected: {MapInt.MAGIC_NUMBERS} Got: {magic}")
 
     if mapbuf.format_version not in (0,):
       raise ValidationError(f"Unsupported format version. Got: {mapbuf.format_version}")
 
-    if len(mapbuf) == 0 and len(buf) != HEADER_LENGTH:
+    if len(mapbuf) == 0 and len(buf) != MapInt.HEADER_LENGTH:
       raise ValidationError("Format is longer than header for zero data.")
 
     return True
+
+  def __repr__(self):
+    return str(self.todict())

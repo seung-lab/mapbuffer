@@ -28,4 +28,5 @@ Simple Example:
 """
 
 from .mapbuffer import MapBuffer
+from .mapint import MapInt
 from .exceptions import *

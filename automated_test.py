@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from mapbuffer import MapBuffer
+from mapbuffer import MapBuffer, MapInt
 import random
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd", "lzma"))
@@ -51,4 +51,11 @@ def test_full(compress):
 
   assert len(mbuf.buffer) > MapBuffer.HEADER_LENGTH
 
-# def test_
+def test_mapint():
+  data = { i:i+1 for i in range(10) }
+
+  mi = MapInt(data)
+  print(mi)
+
+
+
