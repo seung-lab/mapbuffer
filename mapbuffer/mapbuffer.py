@@ -16,7 +16,7 @@ class MapBuffer:
   HEADER_LENGTH = 16
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "_index", "_compress"
+    "dtype", "buffer", "index", "_compress"
   )
   def __init__(
     self, data=None, compress=None,
@@ -40,7 +40,6 @@ class MapBuffer:
     self.dtype = np.uint64
     self.buffer = None
 
-    self._index = None
     self._compress = None
 
     if isinstance(data, dict):
@@ -51,6 +50,17 @@ class MapBuffer:
       self.buffer = data
     else:
       raise TypeError("data must be a dict, bytes, file, or mmap. Got: " + str(type(data)))
+
+    self.index = self.decode_index()
+
+  def decode_index(self):
+    N = len(self)
+    header_len = MapBuffer.HEADER_LENGTH
+    index_length = 2 * N * 8
+    index = self.buffer[header_len:index_length+header_len]
+    index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+    index.setflags(write=False)
+    return index
 
   def __len__(self):
     """Returns number of keys."""
@@ -77,21 +87,8 @@ class MapBuffer:
     """Returns size of data region in bytes."""
     return len(self.buffer) - MapBuffer.HEADER_LENGTH - len(self) * 2 * 8
 
-  def index(self):
-    """Get an Nx2 numpy array representing the index."""
-    if self._index is not None:
-      return self._index
-
-    header_len = MapBuffer.HEADER_LENGTH
-
-    N = len(self)
-    index_length = 2 * N * 8
-    index = self.buffer[header_len:index_length+header_len]
-    self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
-    return self._index
-
   def keys(self):
-    for label, offset in self.index():
+    for label, offset in self.index:
       yield label
 
   def values(self):
@@ -100,14 +97,14 @@ class MapBuffer:
 
   def items(self):
     N = len(self)
-    index = self.index()
+    index = self.index
     for i in range(N):
       label = index[i,0]
       value = self.getindex(i)
       yield (label, value)
 
   def getindex(self, i):
-    index = self.index()
+    index = self.index
     N = index.shape[0]
     offset = index[i,1]
     if i < N - 1:
@@ -126,7 +123,7 @@ class MapBuffer:
     return value  
 
   def find_index_position(self, label):
-    index = self.index()
+    index = self.index
     N = len(index)
     if N == 0:
       return None
@@ -218,7 +215,7 @@ class MapBuffer:
   @staticmethod
   def validate_buffer(buf):
     mapbuf = MapBuffer(buf)
-    index = mapbuf.index()
+    index = mapbuf.index
     if len(index) != len(mapbuf):
       raise ValidationError(f"Index size doesn't match. len(mapbuf): {len(mapbuf)}")
 
