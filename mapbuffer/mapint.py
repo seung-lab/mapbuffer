@@ -67,7 +67,9 @@ class MapInt:
     header_len = MapInt.HEADER_LENGTH
     index_length = 2 * N * np.dtype(self.key_type).itemsize
     index = self.buffer[header_len:index_length+header_len]
-    return np.frombuffer(index, dtype=self.key_type).reshape((N,2))
+    index = np.frombuffer(index, dtype=self.key_type).reshape((N,2))
+    index.setflags(write=False)
+    return index
 
   def __len__(self):
     """Returns number of keys."""
