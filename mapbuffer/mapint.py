@@ -72,7 +72,7 @@ class MapInt:
       return self._key_type
 
     self._key_type = self.type_id_to_dtype(
-      int(self.buffer[8] >> 5)
+      int(self.buffer[7] >> 5)
     )
     return self._key_type
   
@@ -82,14 +82,13 @@ class MapInt:
       return self._value_type
 
     self._value_type = self.type_id_to_dtype(
-      int((self.buffer[8] >> 2) & 0b00000111)
+      int((self.buffer[7] >> 2) & 0b00000111)
     )
     return self._value_type 
 
   def type_id_to_dtype(self, type_id):
     dtype_class = DATA_TYPE[type_id]
     width = self.itemsize
-    width = int(math.log2(width))
 
     if dtype_class == np.unsignedinteger:
       opts = ( np.uint8, np.uint16, np.uint32, np.uint64 )
@@ -104,7 +103,7 @@ class MapInt:
 
   @property
   def itemsize(self):
-    return int(self.buffer[8] & 0b00000011)
+    return int(self.buffer[7] & 0b00000011)
 
   def __iter__(self):
     yield from self.keys()
@@ -216,7 +215,7 @@ class MapInt:
       + bytes([ dtype_byte ])
       + N_region
     )
-    
+
     if N == 0:
       return header
 
