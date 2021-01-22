@@ -2,22 +2,21 @@ import mmap
 import io
 
 from .exceptions import ValidationError
-from .lib import nvl
+from .lib import nvl, eytzinger_sort
 from . import compression
 
 import numpy as np
 
 import mapbufferaccel
 
-FORMAT_VERSION = 0
-MAGIC_NUMBERS = b"mapbufr"
-HEADER_LENGTH = 16
-
 class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
+  FORMAT_VERSION = 0
+  MAGIC_NUMBERS = b"mapbufr"
+  HEADER_LENGTH = 16
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "_index", "_compress"
+    "dtype", "buffer", "index", "_compress"
   )
   def __init__(
     self, data=None, compress=None,
@@ -41,7 +40,6 @@ class MapBuffer:
     self.dtype = np.uint64
     self.buffer = None
 
-    self._index = None
     self._compress = None
 
     if isinstance(data, dict):
@@ -52,6 +50,17 @@ class MapBuffer:
       self.buffer = data
     else:
       raise TypeError("data must be a dict, bytes, file, or mmap. Got: " + str(type(data)))
+
+    self.index = self.decode_index()
+
+  def decode_index(self):
+    N = len(self)
+    header_len = MapBuffer.HEADER_LENGTH
+    index_length = 2 * N * 8
+    index = self.buffer[header_len:index_length+header_len]
+    index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+    index.setflags(write=False)
+    return index
 
   def __len__(self):
     """Returns number of keys."""
@@ -69,28 +78,17 @@ class MapBuffer:
 
   @property
   def format_version(self):
-    return self.buffer[len(MAGIC_NUMBERS)]
+    return self.buffer[len(MapBuffer.MAGIC_NUMBERS)]
 
   def __iter__(self):
     yield from self.keys()
 
   def datasize(self):
     """Returns size of data region in bytes."""
-    return len(self.buffer) - HEADER_LENGTH - len(self) * 2 * 8
-
-  def index(self):
-    """Get an Nx2 numpy array representing the index."""
-    if self._index is not None:
-      return self._index
-
-    N = len(self)
-    index_length = 2 * N * 8
-    index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
-    self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
-    return self._index
+    return len(self.buffer) - MapBuffer.HEADER_LENGTH - len(self) * 2 * 8
 
   def keys(self):
-    for label, offset in self.index():
+    for label, offset in self.index:
       yield label
 
   def values(self):
@@ -99,14 +97,14 @@ class MapBuffer:
 
   def items(self):
     N = len(self)
-    index = self.index()
+    index = self.index
     for i in range(N):
       label = index[i,0]
       value = self.getindex(i)
       yield (label, value)
 
   def getindex(self, i):
-    index = self.index()
+    index = self.index
     N = index.shape[0]
     offset = index[i,1]
     if i < N - 1:
@@ -125,7 +123,7 @@ class MapBuffer:
     return value  
 
   def find_index_position(self, label):
-    index = self.index()
+    index = self.index
     N = len(index)
     if N == 0:
       return None
@@ -176,7 +174,7 @@ class MapBuffer:
     compress_header = nvl(compress, "none")
 
     header = (
-      MAGIC_NUMBERS + bytes([ FORMAT_VERSION ]) 
+      MapBuffer.MAGIC_NUMBERS + bytes([ MapBuffer.FORMAT_VERSION ]) 
       + compress_header.zfill(4).encode("ascii") 
       + N_region
     )
@@ -199,7 +197,7 @@ class MapBuffer:
     data_region = b"".join(
       ( bytes_data[label] for label in labels )
     )
-    index[1] = HEADER_LENGTH + index_length * 8
+    index[1] = MapBuffer.HEADER_LENGTH + index_length * 8
     for i, label in zip(range(1, len(labels)), labels):
       index[i*2 + 1] = index[(i-1)*2 + 1] + len(bytes_data[labels[i-1]])
 
@@ -217,13 +215,13 @@ class MapBuffer:
   @staticmethod
   def validate_buffer(buf):
     mapbuf = MapBuffer(buf)
-    index = mapbuf.index()
+    index = mapbuf.index
     if len(index) != len(mapbuf):
       raise ValidationError(f"Index size doesn't match. len(mapbuf): {len(mapbuf)}")
 
-    magic = buf[:len(MAGIC_NUMBERS)]
-    if magic != MAGIC_NUMBERS:
-      raise ValidationError(f"Magic number mismatch. Expected: {MAGIC_NUMBERS} Got: {magic}")
+    magic = buf[:len(MapBuffer.MAGIC_NUMBERS)]
+    if magic != MapBuffer.MAGIC_NUMBERS:
+      raise ValidationError(f"Magic number mismatch. Expected: {MapBuffer.MAGIC_NUMBERS} Got: {magic}")
 
     if mapbuf.format_version not in (0,):
       raise ValidationError(f"Unsupported format version. Got: {mapbuf.format_version}")
@@ -246,24 +244,7 @@ class MapBuffer:
       # labeldiff = labels[1:] - labels[0:-1]
       # if np.any(labeldiff < 1):
       #   raise ValidationError("Labels aren't sorted.")
-    elif len(buf) != HEADER_LENGTH:
+    elif len(buf) != MapBuffer.HEADER_LENGTH:
       raise ValidationError("Format is longer than header for zero data.")
 
     return True
-
-# TODO: rewrite as a stack to prevent possible stackoverflows
-def eytzinger_sort(inpt, output, i = 0, k = 1):
-  """
-  Takes an ascendingly sorted input and 
-  an equal sized output buffer into which to 
-  rewrite the input in eytzinger order.
-
-  Modified from:
-  https://algorithmica.org/en/eytzinger
-  """
-  if k <= len(inpt):
-    i = eytzinger_sort(inpt, output, i, 2 * k)
-    output[k - 1] = inpt[i]
-    i += 1
-    i = eytzinger_sort(inpt, output,i, 2 * k + 1)
-  return i

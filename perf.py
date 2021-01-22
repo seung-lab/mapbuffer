@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from mapbuffer import MapBuffer, HEADER_LENGTH
+from mapbuffer import MapBuffer
 import random
 import time
 
