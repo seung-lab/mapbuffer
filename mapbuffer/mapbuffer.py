@@ -17,7 +17,8 @@ class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "_index", "_compress"
+    "dtype", "buffer", "_header", 
+    "_index", "_compress"
   )
   def __init__(
     self, data=None, compress=None,
@@ -41,6 +42,7 @@ class MapBuffer:
     self.dtype = np.uint64
     self.buffer = None
 
+    self._header = None
     self._index = None
     self._compress = None
 
@@ -50,12 +52,17 @@ class MapBuffer:
       self.buffer = mmap.mmap(data.fileno(), 0, prot=mmap.PROT_READ)
     elif isinstance(data, (bytes, mmap.mmap)):
       self.buffer = data
+    elif hasattr(data, "__getitem__"):
+      self.buffer = data
     else:
-      raise TypeError("data must be a dict, bytes, file, or mmap. Got: " + str(type(data)))
+      raise TypeError(
+        f"data must be a dict, bytes, file, mmap, or otherwise support "
+        f"__getitem__ with slice support for byte ranges. Got: {type(data)}"
+      )
 
   def __len__(self):
     """Returns number of keys."""
-    return int.from_bytes(self.buffer[12:16], byteorder="little", signed=False)
+    return int.from_bytes(self.header[12:16], byteorder="little", signed=False)
 
   @property
   def compress(self):
@@ -63,13 +70,13 @@ class MapBuffer:
       return self._compress
 
     self._compress = compression.normalize_encoding(
-      self.buffer[8:12]
+      self.header[8:12]
     )
     return self._compress
 
   @property
   def format_version(self):
-    return self.buffer[len(MAGIC_NUMBERS)]
+    return self.header[len(MAGIC_NUMBERS)]
 
   def __iter__(self):
     yield from self.keys()
@@ -77,6 +84,17 @@ class MapBuffer:
   def datasize(self):
     """Returns size of data region in bytes."""
     return len(self.buffer) - HEADER_LENGTH - len(self) * 2 * 8
+
+  @property
+  def header(self):
+    """Get the header bytes."""
+    if self._header is not None:
+      return self._header
+
+    # seems dumb, buf if self.buffer is an object that
+    # requires network access, this is a valuable cache
+    self._header = self.buffer[:HEADER_LENGTH]
+    return self._header
 
   def index(self):
     """Get an Nx2 numpy array representing the index."""
@@ -217,11 +235,12 @@ class MapBuffer:
   @staticmethod
   def validate_buffer(buf):
     mapbuf = MapBuffer(buf)
+    header = mapbuf.header
     index = mapbuf.index()
     if len(index) != len(mapbuf):
       raise ValidationError(f"Index size doesn't match. len(mapbuf): {len(mapbuf)}")
 
-    magic = buf[:len(MAGIC_NUMBERS)]
+    magic = header[:len(MAGIC_NUMBERS)]
     if magic != MAGIC_NUMBERS:
       raise ValidationError(f"Magic number mismatch. Expected: {MAGIC_NUMBERS} Got: {magic}")
 
