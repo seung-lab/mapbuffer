@@ -1,8 +1,12 @@
 import pytest
-import numpy as np
-from mapbuffer import MapBuffer, HEADER_LENGTH
-import random
+
 import mmap
+import os
+import random
+
+import numpy as np
+
+from mapbuffer import MapBuffer, HEADER_LENGTH
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd", "lzma"))
 def test_empty(compress):
@@ -67,6 +71,8 @@ def test_mmap_access(compress):
 
     assert mb[1] == b"hello"
     assert mb[2] == b"world"
+
+  os.remove("test_mmap.mb")
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd"))
 def test_object_access(compress):
