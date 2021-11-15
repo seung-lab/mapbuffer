@@ -49,7 +49,7 @@ class MapBuffer:
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, compress)
     elif isinstance(data, io.IOBase):
-      self.buffer = mmap.mmap(data.fileno(), 0, prot=mmap.PROT_READ)
+      self.buffer = mmap.mmap(data.fileno(), 0, access=mmap.ACCESS_READ)
     elif isinstance(data, (bytes, mmap.mmap)):
       self.buffer = data
     elif hasattr(data, "__getitem__"):
