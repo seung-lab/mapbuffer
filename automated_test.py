@@ -63,16 +63,23 @@ def test_mmap_access(compress):
     2: b"world",
   }
   mbuf = MapBuffer(data, compress=compress)
-  with open("test_mmap.mb", "wb") as f:
+
+  fileno = random.randint(0,2**32)
+  filename = f"test_mmap-{fileno}.mb"
+
+  with open(filename, "wb") as f:
     f.write(mbuf.tobytes())
 
-  with open("test_mmap.mb", "rb") as f:
+  with open(filename, "rb") as f:
     mb = MapBuffer(f)
 
     assert mb[1] == b"hello"
     assert mb[2] == b"world"
 
-  os.remove("test_mmap.mb")
+  try:
+    os.remove(filename)
+  except (PermissionError, FileNotFoundError):
+    pass
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd"))
 def test_object_access(compress):
