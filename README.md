@@ -71,6 +71,11 @@ The byte string format consists of a 16 byte header, an index, and a series of (
 HEADER|INDEX|DATA_REGION
 ```
 
+| Format Version | description                            |
+|----------------|----------------------------------------|
+| 0              | Initial Release                        |
+| 1              | Adds crc32c check values to each item. |
+
 ### Header 
 
 ```
@@ -93,7 +98,7 @@ The index can be consulted by conducting an Eytzinger binary search over the lab
 
 ### Data Region
 
-The data objects are serialized to bytes and compressed individually if the header indicates they should be. They are then concatenated in the same order the index specifies.
+The data objects are serialized to bytes and compressed individually if the header indicates they should be. They are then concatenated in the same order the index specifies. The last four bytes are a crc32c check value that was added in format version 1.
 
 ## Versus Flexbuffers
 
