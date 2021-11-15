@@ -6,7 +6,7 @@ import random
 
 import numpy as np
 
-from mapbuffer import MapBuffer, HEADER_LENGTH
+from mapbuffer import ValidationError, MapBuffer, HEADER_LENGTH
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd", "lzma"))
 def test_empty(compress):
@@ -55,6 +55,25 @@ def test_full(compress):
   mbuf.validate()
 
   assert len(mbuf.buffer) > HEADER_LENGTH
+
+@pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd"))
+def test_crc32c(compress):
+  data = { 
+    1: b"hello",
+    2: b"world",
+  }
+  mbuf = MapBuffer(data, compress=compress)
+
+  idx = mbuf.buffer.index(b"hello")
+  buf = list(mbuf.buffer)
+  buf[idx] = ord(b'H')
+  mbuf.buffer = bytes(buf)
+
+  try:
+    mbuf[1]
+    assert False
+  except ValidationError:
+    pass
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd"))
 def test_mmap_access(compress):
