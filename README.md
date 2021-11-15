@@ -16,6 +16,11 @@ with open("data.mb", "wb") as f:
 with open("data.mb", "rb") as f:
     binary = f.read()
 
+# Uses mmap to read the file. 
+# Cannot access data after file is closed.
+with open("data.mb", "rb") as f:
+    mb = MapBuffer(f)
+
 mb = MapBuffer(binary)
 print(mb[2848]) # fast: almost zero parsing required
 
