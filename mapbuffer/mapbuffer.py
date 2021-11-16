@@ -18,12 +18,13 @@ class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "_header", 
-    "_index", "_compress"
+    "dtype", "buffer", "check_crc", 
+    "_header", "_index", "_compress"
   )
   def __init__(
     self, data=None, compress=None,
-    tobytesfn=None, frombytesfn=None
+    tobytesfn=None, frombytesfn=None,
+    check_crc=True
   ):
     """
     data: dict (int->byte serializable object) or bytes 
@@ -42,6 +43,7 @@ class MapBuffer:
     self.frombytesfn = frombytesfn
     self.dtype = np.uint64
     self.buffer = None
+    self.check_crc = check_crc
 
     self._header = None
     self._index = None
@@ -137,9 +139,12 @@ class MapBuffer:
     if self.format_version == 1:
       stored_check_value = int.from_bytes(value[-4:], byteorder='little')
       value = value[:-4]
-      retrieved_check_value = crc32c.crc32c(value)
-      if retrieved_check_value != stored_check_value:
-        raise ValidationError(f"Label {i} failed its crc32c check. Stored: {stored_check_value} Computed: {retrieved_check_value}")
+      if self.check_crc:
+        retrieved_check_value = crc32c.crc32c(value)
+        if retrieved_check_value != stored_check_value:
+          raise ValidationError(
+            f"Label {i} failed its crc32c check. Stored: {stored_check_value} Computed: {retrieved_check_value}"
+          )
 
     encoding = self.compress
     if encoding:
