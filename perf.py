@@ -6,15 +6,17 @@ import time
 
 import pickle
 
-pf = open("pkl.tsv", "w+")
-mf = open("mb.tsv", "w+")
+pf = open("pkl.tsv", "a")
+mf = open("mb.tsv", "a")
 
-def test(datasize):
-  data = { 
-    random.randint(0, 1000000000): np.random.bytes(random.randint(0,100000)) 
+def mkdataset(datasize):
+  return { 
+    random.randint(0, 1000000000): np.random.bytes(random.randint(0,50000)) 
     for _ in range(datasize) 
   }
 
+def test_pkl(data):
+  datasize = len(data)
   labels = list(data.keys())
   random.shuffle(labels)
   labels = labels[:datasize//10]
@@ -29,6 +31,13 @@ def test(datasize):
   pf.write(f"{datasize}\t{t*1000:.5f}\n")
   pf.flush()
 
+
+def test_mb(data):
+  datasize = len(data)
+  labels = list(data.keys())
+  random.shuffle(labels)
+  labels = labels[:datasize//10]
+
   mbuf = MapBuffer(data)
   buf = mbuf.tobytes()
 
@@ -40,8 +49,12 @@ def test(datasize):
   mf.write(f"{datasize}\t{t*1000:.5f}\n")
   mf.flush()
 
-for i in range(1,10000,50):
-  test(i)
+sz = 1
+while sz < 1000000:
+  data = mkdataset(sz)
+  # test_pkl(data)
+  test_mb(data)
+  sz *= 2
 
 mf.close()
 pf.close()
