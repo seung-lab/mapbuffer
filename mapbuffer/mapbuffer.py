@@ -104,7 +104,7 @@ class MapBuffer:
     N = len(self)
     index_length = 2 * N * 8
     index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
-    self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+    self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2), order="F")
     return self._index
 
   def keys(self):
@@ -148,7 +148,7 @@ class MapBuffer:
     if N == 0:
       return None
 
-    k = mapbufferaccel.eytzinger_binary_search(label, index)
+    k = mapbufferaccel.eytzinger_binary_search(label, index[:,0])
     if k >= 0 and k < N:
       return k
 
@@ -176,7 +176,7 @@ class MapBuffer:
     if pos is not None:
       return self.getindex(pos)
     else:
-      raise KeyError("{} was not found.".format(label))
+      raise KeyError(f"{label} was not found.")
 
   def dict2buf(self, data, compress=None, tobytesfn=None):
     """Structure [ index length, sorted index, data ]"""
@@ -204,7 +204,7 @@ class MapBuffer:
 
     index_length = 2 * N
     index = np.zeros((index_length,), dtype=self.dtype)
-    index[::2] = labels
+    index[:N] = labels
 
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
@@ -217,9 +217,9 @@ class MapBuffer:
     data_region = b"".join(
       ( bytes_data[label] for label in labels )
     )
-    index[1] = HEADER_LENGTH + index_length * 8
+    index[N] = HEADER_LENGTH + index_length * 8
     for i, label in zip(range(1, len(labels)), labels):
-      index[i*2 + 1] = index[(i-1)*2 + 1] + len(bytes_data[labels[i-1]])
+      index[N + i] = index[N + i - 1] + len(bytes_data[labels[i-1]])
 
     return b"".join([ header, index.tobytes(), data_region ])
 

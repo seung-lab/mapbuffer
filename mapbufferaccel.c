@@ -34,18 +34,15 @@ uint64_t mb_ffs (uint64_t x) {
 }
 
 uint64_t c_eytzinger_binary_search(uint64_t x, uint64_t* array, size_t N) {
-    // int64_t block_size = 8; // two cache lines 64 * 2 / 8
+    int64_t block_size = 8; // two cache lines 64 * 2 / 8
     uint64_t k = 1;
     while (k <= (uint64_t)N) {
-        // __builtin_prefetch(array + k * block_size);
-        // multiply by 2 b/c index is [label, pos, label, pos]
-        k = 2 * k + (array[(k - 1) << 1] < x); 
+        __builtin_prefetch(array + (k-1) * block_size);
+        k = 2 * k + (array[k - 1] < x); 
     }
     k >>= mb_ffs(~k);
-    k -= 1;
-
-    if (k >= 0 && array[k << 1] == x) {
-        return k;
+    if (k > 0 && array[k - 1] == x) {
+        return k - 1;
     }
 
     return -1;
@@ -61,7 +58,7 @@ static PyObject* eytzinger_binary_search(PyObject* self, PyObject *args) {
     
     // num bytes / 8 = uint64, then divide by two because 
     // index is [label, pos, label, pos]
-    size_t N = (size_t)index.len / 2 / 8;
+    size_t N = (size_t)index.len / 8;
     uint64_t* bytes = (uint64_t*)index.buf;
 
     int64_t res = c_eytzinger_binary_search((uint64_t)label, bytes, N);
