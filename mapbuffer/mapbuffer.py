@@ -5,11 +5,12 @@ from .exceptions import ValidationError
 from .lib import nvl
 from . import compression
 
+import crc32c
 import numpy as np
 
 import mapbufferaccel
 
-FORMAT_VERSION = 0
+FORMAT_VERSION = 1
 MAGIC_NUMBERS = b"mapbufr"
 HEADER_LENGTH = 16
 
@@ -17,12 +18,13 @@ class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "_header", 
-    "_index", "_compress"
+    "dtype", "buffer", "check_crc", 
+    "_header", "_index", "_compress"
   )
   def __init__(
     self, data=None, compress=None,
-    tobytesfn=None, frombytesfn=None
+    tobytesfn=None, frombytesfn=None,
+    check_crc=True
   ):
     """
     data: dict (int->byte serializable object) or bytes 
@@ -41,6 +43,7 @@ class MapBuffer:
     self.frombytesfn = frombytesfn
     self.dtype = np.uint64
     self.buffer = None
+    self.check_crc = check_crc
 
     self._header = None
     self._index = None
@@ -133,6 +136,16 @@ class MapBuffer:
     else:
       value = self.buffer[offset:]
 
+    if self.format_version == 1:
+      stored_check_value = int.from_bytes(value[-4:], byteorder='little')
+      value = value[:-4]
+      if self.check_crc:
+        retrieved_check_value = crc32c.crc32c(value)
+        if retrieved_check_value != stored_check_value:
+          raise ValidationError(
+            f"Label {i} failed its crc32c check. Stored: {stored_check_value} Computed: {retrieved_check_value}"
+          )
+
     encoding = self.compress
     if encoding:
       value = compression.decompress(value, encoding, str(index[i,0]))
@@ -213,6 +226,8 @@ class MapBuffer:
       label: compression.compress(tobytesfn(val), method=compress) 
       for label, val in data.items()
     }
+    for label in bytes_data:
+      bytes_data[label] += crc32c.crc32c(bytes_data[label]).to_bytes(4, byteorder='little')
 
     data_region = b"".join(
       ( bytes_data[label] for label in labels )
@@ -244,7 +259,7 @@ class MapBuffer:
     if magic != MAGIC_NUMBERS:
       raise ValidationError(f"Magic number mismatch. Expected: {MAGIC_NUMBERS} Got: {magic}")
 
-    if mapbuf.format_version not in (0,):
+    if mapbuf.format_version not in (0,1):
       raise ValidationError(f"Unsupported format version. Got: {mapbuf.format_version}")
 
     if mapbuf.compress not in compression.COMPRESSION_TYPES:
