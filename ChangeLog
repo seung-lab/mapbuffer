@@ -1,6 +1,44 @@
 CHANGES
 =======
 
+0.5.0
+-----
+
+* Format Version 1: Adds crc32c checks. (#8)
+* refactor: make mb perf easier tot est
+* fix: PROT\_READ is a UNIX parameter (#7)
+* fix: allow multiple processes to try working with the file
+* docs: show how to use mmap
+
+0.4.0
+-----
+
+* test: adds github action
+* perf: make robust to network access patterns by caching header
+* fix: f was not defined
+* refactor: remove unused ffs implementation
+
+0.3.2
+-----
+
+* chore: build py39 with appveyor on windows
+
+0.3.1
+-----
+
+* chore: fix appveyor artifact collection
+
+0.3.0
+-----
+
+* chore: update changelog
+* feat: support for mmapped files
+* fix: try to make this compile under windows
+* chore: update build system
+* compile: dont bother with 32 bit windows
+* fix: windows uses cl for compilation
+* fix: no python dir in this appveyor deployment
+
 0.2.0
 -----
 
