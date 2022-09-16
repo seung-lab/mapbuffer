@@ -245,34 +245,29 @@ class MapBuffer:
     return self.buffer
 
   def validate(self):
-    return self.validate_buffer(self.buffer)
-
-  @staticmethod
-  def validate_buffer(buf):
-    mapbuf = MapBuffer(buf)
-    header = mapbuf.header
-    index = mapbuf.index()
-    if len(index) != len(mapbuf):
-      raise ValidationError(f"Index size doesn't match. len(mapbuf): {len(mapbuf)}")
+    header = self.header
+    index = self.index()
+    if len(index) != len(self):
+      raise ValidationError(f"Index size doesn't match. len(self): {len(self)}")
 
     magic = header[:len(MAGIC_NUMBERS)]
     if magic != MAGIC_NUMBERS:
       raise ValidationError(f"Magic number mismatch. Expected: {MAGIC_NUMBERS} Got: {magic}")
 
-    if mapbuf.format_version not in (0,1):
-      raise ValidationError(f"Unsupported format version. Got: {mapbuf.format_version}")
+    if self.format_version not in (0,1):
+      raise ValidationError(f"Unsupported format version. Got: {self.format_version}")
 
-    if mapbuf.compress not in compression.COMPRESSION_TYPES:
-      raise ValidationError(f"Unsupported compression format. Got: {mapbuf.compress}")
+    if self.compress not in compression.COMPRESSION_TYPES:
+      raise ValidationError(f"Unsupported compression format. Got: {self.compress}")
 
-    if len(mapbuf) > 0:
+    if len(self) > 0:
       offsets = index[:,1].astype(np.int64)
       lengths = offsets[1:] - offsets[0:-1]
       if np.any(lengths < 0):
         raise ValidationError("Offsets are not sorted.")
 
-      length = lengths.sum() + (len(buf) - offsets[-1])
-      if length != mapbuf.datasize():
+      length = lengths.sum() + (len(self.buffer) - offsets[-1])
+      if length != self.datasize():
         raise ValidationError(f"Data length doesn't match offsets. Predicted: {length} Data Size: {mapbuf.datasize()}")
 
       # TODO: rewrite check to ensure eytzinger order
@@ -280,10 +275,15 @@ class MapBuffer:
       # labeldiff = labels[1:] - labels[0:-1]
       # if np.any(labeldiff < 1):
       #   raise ValidationError("Labels aren't sorted.")
-    elif len(buf) != HEADER_LENGTH:
+    elif len(self.buffer) != HEADER_LENGTH:
       raise ValidationError("Format is longer than header for zero data.")
 
     return True
+
+  @staticmethod
+  def validate_buffer(buf):
+    mapbuf = MapBuffer(buf)
+    return mapbuf.validate()
 
 # TODO: rewrite as a stack to prevent possible stackoverflows
 def eytzinger_sort(inpt, output, i = 0, k = 1):
