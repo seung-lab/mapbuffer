@@ -118,8 +118,28 @@ def test_object_access(compress):
   assert mbuf2[1] == b"hello"
   assert mbuf2[2] == b"world"
 
+def test_set_object():
+  data = { 
+    1: b"hello",
+    2: b"world",
+  }
+  mbuf = MapBuffer(data, compress=None)
 
+  assert mbuf[1] == b"hello"
 
+  mbuf[1] = b"abcde"
+  assert mbuf[1] == b"abcde"
+
+  try:
+    mbuf[2] = b'abcdefg'
+    assert False
+  except ValueError:
+    pass
+
+  try:
+    mbuf[9] = b'123'
+  except KeyError:
+    pass
 
 
 
