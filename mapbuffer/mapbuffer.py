@@ -2,7 +2,7 @@ import mmap
 import io
 
 from .exceptions import ValidationError
-from .lib import nvl
+from .lib import nvl, eytzinger_sort
 from . import compression
 
 import crc32c
@@ -324,20 +324,3 @@ class MapBuffer:
   def validate_buffer(buf):
     mapbuf = MapBuffer(buf)
     return mapbuf.validate()
-
-# TODO: rewrite as a stack to prevent possible stackoverflows
-def eytzinger_sort(inpt, output, i = 0, k = 1):
-  """
-  Takes an ascendingly sorted input and 
-  an equal sized output buffer into which to 
-  rewrite the input in eytzinger order.
-
-  Modified from:
-  https://algorithmica.org/en/eytzinger
-  """
-  if k <= len(inpt):
-    i = eytzinger_sort(inpt, output, i, 2 * k)
-    output[k - 1] = inpt[i]
-    i += 1
-    i = eytzinger_sort(inpt, output,i, 2 * k + 1)
-  return i
