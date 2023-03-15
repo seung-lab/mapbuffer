@@ -83,6 +83,8 @@ def transcode(
 def normalize_encoding(encoding):
   if isinstance(encoding, str):
     encoding = encoding.lower()
+  elif isinstance(encoding, bytearray):
+    return BYTE_MAPPING[bytes(encoding)]
   elif isinstance(encoding, bytes):
     return BYTE_MAPPING[encoding]
 

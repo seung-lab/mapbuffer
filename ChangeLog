@@ -1,6 +1,13 @@
 CHANGES
 =======
 
+0.5.1
+-----
+
+* release(0.5.1): validate uses caching
+* perf: allow validate to take advantage of caching
+* chore: update ChangeLog
+
 0.5.0
 -----
 

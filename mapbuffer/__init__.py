@@ -28,4 +28,5 @@ Simple Example:
 """
 
 from .mapbuffer import MapBuffer, HEADER_LENGTH, MAGIC_NUMBERS, FORMAT_VERSION
+from .intmap import IntMap
 from .exceptions import *
