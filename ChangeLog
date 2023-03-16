@@ -1,6 +1,12 @@
 CHANGES
 =======
 
+0.6.0
+-----
+
+* build: update appveyor and GHA. exclude py36
+* feat: IntMap simplified structure for u64 -> u64 (#11)
+
 0.5.1
 -----
 

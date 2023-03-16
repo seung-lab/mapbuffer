@@ -5,7 +5,7 @@
 Serializable map of integers to bytes with near zero parsing.
 
 ```python
-from mapbuffer import MapBuffer
+from mapbuffer import MapBuffer, IntMap
 
 data = { 2848: b'abc', 12939: b'123' }
 mb = MapBuffer(data)
@@ -33,6 +33,16 @@ mb = MapBuffer(binary,
 )
 print(mb[2848])
 >>> "abc" # bytes were automatically decoded
+
+# There is also an IntMap class for u64 -> u64 mapping
+# You don't need to specify compress or from/to bytes
+# The serialization is also smaller as it's only the
+# index, no payload. Everything else is the same.
+im = IntMap({ 1: 2, 3: 4 })
+print(im[1]) # 2
+
+with open("data.im", "wb") as f:
+    f.write(im.tobytes())
 ```
 
 ## Installation
