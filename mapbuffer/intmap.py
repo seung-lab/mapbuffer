@@ -141,10 +141,10 @@ class IntMap:
 
   def dict2buf(self, data):
     """Structure [ index length, sorted index, data ]"""
-    labels = np.array([ int(lbl) for lbl in data.keys() ], dtype=self.dtype)
+    labels = np.fromiter(( int(lbl) for lbl in data.keys() ), count=len(data), dtype=self.dtype)
     labels.sort()
 
-    out = np.zeros((len(labels),), dtype=np.uint64)
+    out = np.zeros((len(labels),), dtype=self.dtype)
     eytzinger_sort(labels, out)
     labels = out
 
@@ -167,8 +167,10 @@ class IntMap:
 
     for i, label in enumerate(labels):
       index[2*i + 1] = int(data[label])
-
-    return bytearray(b"".join([ header, index.tobytes() ]))
+    
+    del labels
+    
+    return b"".join([ header, index.tobytes() ])
 
   def todict(self):
     return { label: val for label, val in self.items() }

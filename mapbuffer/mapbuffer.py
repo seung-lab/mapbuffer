@@ -233,7 +233,10 @@ class MapBuffer:
 
   def dict2buf(self, data, compress=None, tobytesfn=None):
     """Structure [ index length, sorted index, data ]"""
-    labels = np.array([ int(lbl) for lbl in data.keys() ], dtype=self.dtype)
+    labels = np.fromiter(
+      ( int(lbl) for lbl in data.keys() ), 
+      count=len(data), dtype=self.dtype
+    )
     labels.sort()
 
     out = np.zeros((len(labels),), dtype=np.uint64)
@@ -276,6 +279,8 @@ class MapBuffer:
     for i, label in zip(range(1, len(labels)), labels):
       index[i*2 + 1] = index[(i-1)*2 + 1] + len(bytes_data[labels[i-1]])
 
+    del labels
+    
     return b"".join([ header, index.tobytes(), data_region ])
 
   def todict(self):

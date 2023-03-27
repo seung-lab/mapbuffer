@@ -232,6 +232,7 @@ def test_set_object_intmap():
     2: 7,
   }
   mbuf = IntMap(data)
+  mbuf.buffer = bytearray(mbuf.buffer)
 
   assert mbuf[1] == 5
 
