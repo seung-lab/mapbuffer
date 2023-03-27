@@ -1,6 +1,15 @@
 import setuptools
 import platform
 
+class NumpyImport:
+  def __repr__(self):
+    import numpy as np
+
+    return np.get_include()
+
+  __fspath__ = __repr__
+
+
 extra_compile_args = [ "-O3" ]
 if platform.system() == "Windows":
   extra_compile_args = [ "/O2" ]
@@ -13,6 +22,7 @@ setuptools.setup(
     setuptools.Extension(
       'mapbufferaccel',
       sources=[ 'mapbufferaccel.c' ],
+      include_dirs=[ NumpyImport() ],
       language='c',
       extra_compile_args=extra_compile_args,
     )
