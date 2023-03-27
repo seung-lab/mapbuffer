@@ -239,9 +239,8 @@ class MapBuffer:
     )
     labels.sort()
 
-    out = np.zeros((len(labels),), dtype=np.uint64)
-    eytzinger_sort(labels, out)
-    labels = out
+    layout = mapbufferaccel.eytzinger_sort_indices(len(data))
+    labels = labels[layout]
 
     N = len(labels)
     N_region = N.to_bytes(4, byteorder="little", signed=False)
