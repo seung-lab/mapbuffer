@@ -117,5 +117,5 @@ def eytzinger_sort(inpt, output, i = 0, k = 1):
     i = eytzinger_sort(inpt, output, i, 2 * k)
     output[k - 1] = inpt[i]
     i += 1
-    i = eytzinger_sort(inpt, output,i, 2 * k + 1)
+    i = eytzinger_sort(inpt, output, i, 2 * k + 1)
   return i
