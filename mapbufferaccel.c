@@ -67,14 +67,14 @@ uint32_t c_eytzinger_sort_indices(
 
 // takes an array sorted in ascending order and transforms it
 // into eytzinger order
-static PyArrayObject* eytzinger_sort_indices(PyObject* self, PyObject *args) {
+static PyObject* eytzinger_sort_indices(PyObject* self, PyObject *args) {
     PyGILState_STATE state = PyGILState_Ensure();
     import_array();
     
     Py_ssize_t length;
     if (!PyArg_ParseTuple(args, "n", &length)) {
         PyGILState_Release(state);
-        return NULL;
+        Py_RETURN_NONE;
     }
     npy_intp dims[] = {length};
     PyArrayObject* arr = (PyArrayObject*)PyArray_SimpleNew(1, dims, NPY_UINT32);
@@ -82,7 +82,7 @@ static PyArrayObject* eytzinger_sort_indices(PyObject* self, PyObject *args) {
     if (arr == NULL) {
         PyGILState_Release(state);
         PyErr_SetString(PyExc_RuntimeError, "Failed to create Numpy array");
-        return NULL;
+        Py_RETURN_NONE;
     }
 
     uint32_t* data = (uint32_t*)PyArray_DATA(arr);
