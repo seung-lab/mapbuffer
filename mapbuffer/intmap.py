@@ -3,7 +3,7 @@ import io
 import itertools
 
 from .exceptions import ValidationError
-from .lib import eytzinger_sort, eytzinger_sort_indices
+from .lib import eytzinger_sort
 
 import numpy as np
 
@@ -142,14 +142,20 @@ class IntMap:
 
   def dict2buf(self, data):
     """Structure [ index length, sorted index, data ]"""
-    labels = np.fromiter(( int(lbl) for lbl in data.keys() ), count=len(data), dtype=self.dtype)
-    labels.sort()
+    labels = np.fromiter(
+      ( 
+        int(lbl) for lbl in itertools.chain.from_iterable(data.items()) 
+      ), 
+      count=len(data) * 2, 
+      dtype=self.dtype
+    )
+    labels = labels.reshape((len(data),2), order="C")
+    labels.view("<u8,<u8").sort(order=["f0"], axis=0)
 
-    out = np.zeros((len(labels),), dtype=self.dtype)
-    eytzinger_sort(labels, out)
-    labels = out
+    layout = mapbufferaccel.eytzinger_sort_indices(len(data))
+    labels = labels[layout]
 
-    N = len(labels)
+    N = len(data)
     N_region = N.to_bytes(4, byteorder="little", signed=False)
 
     header = (
@@ -161,17 +167,8 @@ class IntMap:
 
     if N == 0:
       return header
-
-    index_length = 2 * N
-    index = np.zeros((index_length,), dtype=self.dtype)
-    index[::2] = labels
-
-    for i, label in enumerate(labels):
-      index[2*i + 1] = int(data[label])
     
-    del labels
-    
-    return b"".join([ header, index.tobytes() ])
+    return b"".join([ header, labels.tobytes('C') ])
 
   def todict(self):
     return { label: val for label, val in self.items() }
