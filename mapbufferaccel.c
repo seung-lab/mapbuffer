@@ -4,6 +4,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdint.h>
+#include <numpy/arrayobject.h>
 
 #if defined _MSC_VER
 # include <intrin.h>
@@ -51,6 +52,46 @@ uint64_t c_eytzinger_binary_search(uint64_t x, uint64_t* array, size_t N) {
     return -1;
 }
 
+uint32_t c_eytzinger_sort_indices(
+    uint32_t* array, uint32_t n, 
+    uint32_t i /*=0*/, uint32_t k /*=1*/
+) {
+    if (k <= n) {
+        i = c_eytzinger_sort_indices(array, n, i, 2 * k);
+        array[k-1] = i;
+        i++;
+        i = c_eytzinger_sort_indices(array, n, i, 2 * k + 1);
+    }
+    return i;
+}
+
+// takes an array sorted in ascending order and transforms it
+// into eytzinger order
+static PyArrayObject* eytzinger_sort_indices(PyObject* self, PyObject *args) {
+    PyGILState_STATE state = PyGILState_Ensure();
+    import_array();
+    
+    Py_ssize_t length;
+    if (!PyArg_ParseTuple(args, "n", &length)) {
+        PyGILState_Release(state);
+        return NULL;
+    }
+    npy_intp dims[] = {length};
+    PyArrayObject* arr = (PyArrayObject*)PyArray_SimpleNew(1, dims, NPY_UINT32);
+
+    if (arr == NULL) {
+        PyGILState_Release(state);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create Numpy array");
+        return NULL;
+    }
+
+    uint32_t* data = (uint32_t*)PyArray_DATA(arr);
+    c_eytzinger_sort_indices(data, length, 0, 1);
+    
+    PyGILState_Release(state);
+    return (PyObject*)arr;
+}
+
 static PyObject* eytzinger_binary_search(PyObject* self, PyObject *args) {
     Py_buffer index;
     Py_ssize_t label;
@@ -70,6 +111,7 @@ static PyObject* eytzinger_binary_search(PyObject* self, PyObject *args) {
 
 static PyMethodDef mapbufferaccel_methods[] = {
     {"eytzinger_binary_search", (PyCFunction)eytzinger_binary_search, METH_VARARGS, "Binary search on Eytzinger sorted mapbuffer index. Arguments: uint64_t label, uint64* index"},
+    {"eytzinger_sort_indices", (PyCFunction)eytzinger_sort_indices, METH_VARARGS, "Return the Eytzinger layout as a uint32 numpy array for a given sorted array of length N. Arguments: int length"},
     {NULL, NULL, 0, NULL}
 };
 

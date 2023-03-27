@@ -1,8 +1,9 @@
 import mmap 
 import io
+import itertools
 
 from .exceptions import ValidationError
-from .lib import eytzinger_sort
+from .lib import eytzinger_sort, eytzinger_sort_indices
 
 import numpy as np
 
