@@ -213,6 +213,41 @@ class MapBuffer:
     
     return self.getindex(pos)
 
+  def append(self, label, val):
+    noop = lambda x: x
+    tobytesfn = nvl(self.tobytesfn, noop)
+    binary_val = compression.compress(
+      tobytesfn(val), method=self.compress
+    )
+    binary_val += crc32c.crc32c(binary_val).to_bytes(4, byteorder='little')
+
+    index = np.copy(self.index())
+    index[:,1] += 16
+    row = np.array([[label, 16 + len(self.buffer)]], dtype=np.uint64)
+    index = np.concatenate((index, row))
+    index.view("<u8,<u8").sort(order="f0", axis=0)
+
+    layout = mapbufferaccel.eytzinger_sort_indices(index.shape[0])
+    index = index[layout]
+
+    compress_header = nvl(self.compress, "none")
+    N_region = int(index.shape[0]).to_bytes(4, 'little')
+
+    header = (
+      MAGIC_NUMBERS + bytes([ FORMAT_VERSION ]) 
+      + compress_header.zfill(4).encode("ascii") 
+      + N_region
+    )
+
+    
+
+    return b''.join([
+      header,
+      index.tobytes("C"),
+      self.buffer[len(header) + index.nbytes - 16:],
+      binary_val
+    ])
+
   def __contains__(self, label):
     pos = self.find_index_position(label)
     return pos is not None
