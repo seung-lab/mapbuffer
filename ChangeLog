@@ -1,6 +1,25 @@
 CHANGES
 =======
 
+0.7.1
+-----
+
+* fix: memory leak in eytzinger\_binary\_search
+
+0.7.0
+-----
+
+* build: update cibuildwheel
+* build: add py311 to appveyor
+* fix: compile warnings
+* perf: faster, more efficient eytzinger sort for mapbuffer
+* chore: whitespace
+* install: add numpy requirement
+* perf: much faster dict2buf
+* feat: fast eytzinger sort index creation
+* perf: improve memory usage in dict2buf
+* build: update tox
+
 0.6.0
 -----
 
