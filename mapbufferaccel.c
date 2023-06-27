@@ -106,6 +106,8 @@ static PyObject* eytzinger_binary_search(PyObject* self, PyObject *args) {
     uint64_t* bytes = (uint64_t*)index.buf;
 
     int64_t res = c_eytzinger_binary_search((uint64_t)label, bytes, N);
+    PyBuffer_Release(&index);
+    
     return Py_BuildValue("L", res); // L = long long
 }
 
