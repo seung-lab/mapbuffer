@@ -30,4 +30,4 @@ jobs:
         if [ -f requirements.txt ]; then pip install -e ".[test]"; fi
     - name: Test with pytest
       run: |
-        pytest
+        python -m pytest -v -x automated_test.py
