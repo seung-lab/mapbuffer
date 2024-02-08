@@ -16,7 +16,7 @@ if platform.system() == "Windows":
 
 setuptools.setup(
   setup_requires=['pbr'],
-  python_requires=">=3.7,<4.0", # >= 3.6 < 4.0
+  python_requires=">=3.7,<4.0",
   include_package_data=True,
   ext_modules=[
     setuptools.Extension(
