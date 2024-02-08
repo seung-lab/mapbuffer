@@ -22,7 +22,7 @@ setuptools.setup(
     setuptools.Extension(
       'mapbufferaccel',
       sources=[ 'mapbufferaccel.c' ],
-      include_dirs=[ NumpyImport() ],
+      include_dirs=[ str(NumpyImport()) ],
       language='c',
       extra_compile_args=extra_compile_args,
     )
