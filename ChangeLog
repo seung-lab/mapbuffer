@@ -1,9 +1,16 @@
 CHANGES
 =======
 
+0.7.2
+-----
+
+* install: add "str" to make numpy import go smoothly
+* build: add support for py312
+
 0.7.1
 -----
 
+* build: skip musllinux
 * fix: memory leak in eytzinger\_binary\_search
 
 0.7.0
