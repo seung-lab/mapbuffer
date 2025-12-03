@@ -288,10 +288,13 @@ class MapBuffer:
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
 
-    bytes_data = { 
-      label: compression.compress(tobytesfn(val), method=compress) 
-      for label, val in data.items()
-    }
+    if tobytesfn == noop and compress is None:
+      bytes_data = data
+    else:
+      bytes_data = { 
+        label: compression.compress(tobytesfn(val), method=compress) 
+        for label, val in data.items()
+      }
 
     if self.compute_crc:
       for label in bytes_data:
@@ -300,9 +303,17 @@ class MapBuffer:
     data_region = b"".join(
       ( bytes_data[label] for label in labels )
     )
-    index[1] = HEADER_LENGTH + index_length * 8
-    for i, label in zip(range(1, len(labels)), labels):
-      index[i*2 + 1] = index[(i-1)*2 + 1] + len(bytes_data[labels[i-1]])
+
+    lengths = np.fromiter(
+      (len(bytes_data[lbl]) for lbl in labels),
+      count=len(labels),
+      dtype=np.int64,
+    )
+
+    offsets = np.empty_like(lengths)
+    offsets[0] = HEADER_LENGTH + index_length * 8
+    offsets[1:] = offsets[0] + np.cumsum(lengths[:-1])
+    index[1::2] = offsets
 
     del labels
     
