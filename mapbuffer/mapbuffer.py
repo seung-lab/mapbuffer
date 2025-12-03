@@ -1,3 +1,6 @@
+from typing import Optional, Any, Union, Literal
+from collections.abc import Callable
+
 import mmap 
 import io
 
@@ -18,13 +21,17 @@ class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "check_crc", 
+    "dtype", "buffer", "check_crc", "compute_crc",
     "_header", "_index", "_compress"
   )
   def __init__(
-    self, data=None, compress=None,
-    tobytesfn=None, frombytesfn=None,
-    check_crc=True
+    self,
+    data:Optional[Union[dict,bytes,io.IOBase,bytes, bytearray,mmap.mmap]] = None, 
+    compress:Optional[Literal["gzip", "br", "zstd", "lzma"]] = None,
+    tobytesfn:Optional[Callable[[Any], bytes]] = None,
+    frombytesfn:Optional[Callable[[bytes], Any]] = None,
+    check_crc:bool = True, 
+    compute_crc:bool = True,
   ):
     """
     data: dict (int->byte serializable object) or bytes 
@@ -44,6 +51,7 @@ class MapBuffer:
     self.dtype = np.uint64
     self.buffer = None
     self.check_crc = check_crc
+    self.compute_crc = compute_crc
 
     self._header = None
     self._index = None
@@ -259,8 +267,13 @@ class MapBuffer:
     compress = compression.normalize_encoding(compress)
     compress_header = nvl(compress, "none")
 
+    if self.compute_crc:
+      fmt_version = FORMAT_VERSION
+    else:
+      fmt_version = 0
+
     header = (
-      MAGIC_NUMBERS + bytes([ FORMAT_VERSION ]) 
+      MAGIC_NUMBERS + bytes([ fmt_version ]) 
       + compress_header.zfill(4).encode("ascii") 
       + N_region
     )
@@ -279,8 +292,10 @@ class MapBuffer:
       label: compression.compress(tobytesfn(val), method=compress) 
       for label, val in data.items()
     }
-    for label in bytes_data:
-      bytes_data[label] += crc32c.crc32c(bytes_data[label]).to_bytes(4, byteorder='little')
+
+    if self.compute_crc:
+      for label in bytes_data:
+        bytes_data[label] += crc32c.crc32c(bytes_data[label]).to_bytes(4, byteorder='little')
 
     data_region = b"".join(
       ( bytes_data[label] for label in labels )
