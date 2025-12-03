@@ -105,9 +105,20 @@ class MapBuffer:
       return self._index
 
     N = len(self)
-    index_length = 2 * N * 8
-    index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
-    self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+    index_length = 2 * N
+
+    if isinstance(self.buffer, (bytes,bytearray,np.ndarray,mmap.mmap)):
+      self._index = np.frombuffer(
+        self.buffer,
+        offset=HEADER_LENGTH,
+        count=index_length,
+        dtype=np.uint64,
+      ).reshape((N,2))
+    else:
+      index_length *= 8
+      index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
+      self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+    
     return self._index
 
   def keys(self):
