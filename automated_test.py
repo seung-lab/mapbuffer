@@ -34,7 +34,7 @@ def test_full(compress):
   mbuf = MapBuffer(data, compress=compress)
   assert set(data.keys()) == set(mbuf.keys())
   assert set(data) == set(mbuf)
-  assert set(data.values()) == set(mbuf.values())
+  assert set(data.values()) == set(( bytes(x) for x in mbuf.values()))
 
   for key in data:
     assert data[key] == mbuf[key]
