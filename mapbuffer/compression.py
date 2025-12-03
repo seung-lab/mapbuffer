@@ -143,14 +143,15 @@ def compress(content, method='gzip', compress_level=None):
 
   Return: compressed content
   """
+  if not method:
+    return content
+  
   if method == True:
     method = 'gzip' # backwards compatibility
 
   method = (method or '').lower()
 
-  if method == '':
-    return content
-  elif method == 'gzip': 
+  if method == 'gzip': 
     return gzip_compress(content, compresslevel=compress_level)
   elif method == 'br':
     return brotli_compress(content, quality=compress_level)
