@@ -288,7 +288,7 @@ class MapBuffer:
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
 
-    if tobytesfn == noop and compress is None:
+    if tobytesfn == noop and compress is None and not self.compute_crc:
       bytes_data = data
     else:
       bytes_data = { 
