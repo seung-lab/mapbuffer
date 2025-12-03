@@ -43,6 +43,10 @@ print(im[1]) # 2
 
 with open("data.im", "wb") as f:
     f.write(im.tobytes())
+
+# You can skip computing or checking CRCs, e.g. if your
+# embedded object already contains CRCs
+mb = MapBuffer(..., check_crc=False, compute_crc=False)
 ```
 
 ## Installation
