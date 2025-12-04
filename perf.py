@@ -28,9 +28,8 @@ def test_pkl(data):
     dat[label]
   t = time.perf_counter() - s
 
-  pf.write(f"{datasize}\t{t*1000:.5f}\n")
+  pf.write(f"{datasize}\t{t*1000:.1f} ms\n")
   pf.flush()
-
 
 def test_mb(data):
   datasize = len(data)
@@ -38,7 +37,7 @@ def test_mb(data):
   random.shuffle(labels)
   labels = labels[:datasize//10]
 
-  mbuf = MapBuffer(data)
+  mbuf = MapBuffer(data, compute_crc=False)
   buf = mbuf.tobytes()
 
   s = time.perf_counter()
@@ -46,7 +45,7 @@ def test_mb(data):
   for label in labels:
     mbuf[label]
   t = time.perf_counter() - s 
-  mf.write(f"{datasize}\t{t*1000:.5f}\n")
+  mf.write(f"{datasize}\t{t*1000:.1f} ms\n")
   mf.flush()
 
 sz = 1
