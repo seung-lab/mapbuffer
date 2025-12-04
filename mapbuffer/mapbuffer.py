@@ -281,9 +281,8 @@ class MapBuffer:
     if N == 0:
       return header
 
-    index_length = 2 * N
-    index = np.zeros((index_length,), dtype=self.dtype)
-    index[::2] = labels
+    index = np.zeros((N,2), dtype=self.dtype, order="C")
+    index[:,0] = labels
 
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
@@ -311,13 +310,13 @@ class MapBuffer:
     )
 
     offsets = np.empty_like(lengths)
-    offsets[0] = HEADER_LENGTH + index_length * 8
+    offsets[0] = HEADER_LENGTH + index.nbytes
     offsets[1:] = offsets[0] + np.cumsum(lengths[:-1])
-    index[1::2] = offsets
+    index[:,1] = offsets
 
     del labels
     
-    return b"".join([ header, index.tobytes(), data_region ])
+    return b"".join([ header, index.tobytes('C'), data_region ])
 
   def todict(self):
     return { label: val for label, val in self.items() }
