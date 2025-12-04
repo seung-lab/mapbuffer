@@ -22,11 +22,11 @@ def test_pkl(data):
   labels = labels[:datasize//10]
 
   pkl = pickle.dumps(data)
-  s = time.time()
+  s = time.perf_counter()
   dat = pickle.loads(pkl)
   for label in labels:
     dat[label]
-  t = time.time() - s
+  t = time.perf_counter() - s
 
   pf.write(f"{datasize}\t{t*1000:.5f}\n")
   pf.flush()
@@ -41,11 +41,11 @@ def test_mb(data):
   mbuf = MapBuffer(data)
   buf = mbuf.tobytes()
 
-  s = time.time()
+  s = time.perf_counter()
   mbuf = MapBuffer(buf)
   for label in labels:
     mbuf[label]
-  t = time.time() - s 
+  t = time.perf_counter() - s 
   mf.write(f"{datasize}\t{t*1000:.5f}\n")
   mf.flush()
 
