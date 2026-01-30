@@ -25,13 +25,14 @@ def test_empty(compress):
 
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd"))
-def test_full(compress):
+@pytest.mark.parametrize("compute_crc", [True, False])
+def test_full(compress, compute_crc):
   data = { 
     random.randint(0, 1000000000): bytes([ 
       random.randint(0,255) for __ in range(random.randint(0,50)) 
     ]) for _ in range(10000) 
   }
-  mbuf = MapBuffer(data, compress=compress)
+  mbuf = MapBuffer(data, compress=compress, compute_crc=compute_crc)
   assert set(data.keys()) == set(mbuf.keys())
   assert set(data) == set(mbuf)
   assert set(data.values()) == set(( bytes(x) for x in mbuf.values()))
