@@ -41,6 +41,9 @@ def test_full(compress):
     assert data[key] == mbuf.get(key)
     assert key in mbuf
 
+    if compress is None:
+      assert len(data[key]) == mbuf.size(key)
+
   assert data == mbuf.todict()
 
   for i in range(2000):
