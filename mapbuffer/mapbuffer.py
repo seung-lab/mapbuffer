@@ -237,14 +237,14 @@ class MapBuffer:
     pos = self.find_index_position(label)
     index = self.index()
     N = index.shape[0]
-    offset = index[i,1]
+    offset = index[pos,1]
 
     crc_compensation = 0
     if self.format_version > 0:
       crc_compensation = 4
 
-    if i < N - 1:
-      next_offset = index[i+1,1]
+    if pos < N - 1:
+      next_offset = index[pos+1,1]
       return next_offset - offset - crc_compensation
     else:
       return len(self.buffer) - offset - crc_compensation
