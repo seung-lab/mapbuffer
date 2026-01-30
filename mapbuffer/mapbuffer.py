@@ -232,6 +232,23 @@ class MapBuffer:
     
     return self.getindex(pos)
 
+  def size(self, label:int) -> int:
+    """Returns the size of the object in bytes."""
+    pos = self.find_index_position(label)
+    index = self.index()
+    N = index.shape[0]
+    offset = index[i,1]
+
+    crc_compensation = 0
+    if self.format_version > 0:
+      crc_compensation = 4
+
+    if i < N - 1:
+      next_offset = index[i+1,1]
+      return next_offset - offset - crc_compensation
+    else:
+      return len(self.buffer) - offset - crc_compensation
+
   def __contains__(self, label):
     pos = self.find_index_position(label)
     return pos is not None
