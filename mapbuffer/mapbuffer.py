@@ -24,7 +24,7 @@ class MapBuffer:
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
     "dtype", "buffer", "check_crc", "compute_crc", "index_cache",
-    "_header", "_index", "_compress"
+    "_header", "_index", "_compress", "_lock"
   )
   def __init__(
     self,
@@ -60,6 +60,9 @@ class MapBuffer:
     self._header = None
     self._index = None
     self._compress = None
+    self._lock = None
+    if self.index_cache is not None:
+      self._lock = fasteners.InterProcessReaderWriterLock()
 
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, compress)
@@ -108,8 +111,7 @@ class MapBuffer:
 
     if self.index_cache is not None:
       if os.path.exists(self.index_cache):
-        lock = fasteners.InterProcessReaderWriterLock(self.index_cache)
-        with lock.read_lock():
+        with self._lock.read_lock():
           with open(self.index_cache, "rb") as f:
             self._header = f.read(HEADER_LENGTH)
 
@@ -121,8 +123,7 @@ class MapBuffer:
     self._header = self.buffer[:HEADER_LENGTH]
 
     if self.index_cache is not None:
-      lock = fasteners.InterProcessReaderWriterLock(self.index_cache)
-      with lock.write_lock():
+      with self._lock.write_lock():
         try:
           if os.path.getsize(self.index_cache) < HEADER_LENGTH:
             with open(self.index_cache, "wb") as f:
@@ -142,10 +143,9 @@ class MapBuffer:
     index_length = 2 * N
 
     if self.index_cache is not None:
-      lock = fasteners.InterProcessReaderWriterLock(self.index_cache)
       try:
         if os.path.getsize(self.index_cache) > HEADER_LENGTH:
-          with lock.read_lock():
+          with self._lock.read_lock():
             with open(self.index_cache, "rb") as f:
               f.seek(HEADER_LENGTH)
               index = f.read(index_length * 8)
@@ -167,10 +167,9 @@ class MapBuffer:
       self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
     
     if self.index_cache is not None:
-      lock = fasteners.InterProcessReaderWriterLock(self.index_cache)
       try:
         if os.path.getsize(self.index_cache) == HEADER_LENGTH:
-          with lock.write_lock():
+          with self._lock.write_lock():
             with open(self.index_cache, "ab") as f:
               f.write(self._index.tobytes('C'))
       except FileNotFoundError:
