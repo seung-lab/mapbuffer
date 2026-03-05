@@ -248,6 +248,26 @@ def test_set_object_intmap():
   except KeyError:
     pass
 
+def test_index_cache():
+  data = { 
+    1: b"hello",
+    2: b"world",
+  }
+  mbuf = MapBuffer(data, index_cache="./hello.mbi")
 
+  idx = mbuf.buffer.index(b"hello")
+  buf = list(mbuf.buffer)
+  buf[idx] = ord(b'H')
+  mbuf.buffer = bytes(buf)
 
+  try:
+    mbuf[1]
+    assert False
+  except ValidationError:
+    pass
+
+  assert os.path.exists("./hello.mbi")
+
+  mbuf = MapBuffer(data, index_cache="./hello.mbi")
+  mbuf.index()
 
