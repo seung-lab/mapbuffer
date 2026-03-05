@@ -22,7 +22,7 @@ class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "check_crc", "compute_crc",
+    "dtype", "buffer", "check_crc", "compute_crc", "index_cache",
     "_header", "_index", "_compress"
   )
   def __init__(
