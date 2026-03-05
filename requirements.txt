@@ -1,6 +1,7 @@
 brotli
 crc32c
 deflate>=0.2.0
+fasteners
 numpy
 tqdm
 zstandard
