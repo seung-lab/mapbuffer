@@ -3,10 +3,13 @@ import pytest
 import mmap
 import os
 import random
+from unittest.mock import patch
 
 import numpy as np
 
 from mapbuffer import ValidationError, IntMap, MapBuffer, HEADER_LENGTH
+
+CACHE_PATH = "./test_index_cache.mbi"
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd", "lzma"))
 def test_empty(compress):
@@ -248,26 +251,96 @@ def test_set_object_intmap():
   except KeyError:
     pass
 
-def test_index_cache():
-  data = { 
-    1: b"hello",
-    2: b"world",
-  }
-  mbuf = MapBuffer(data, index_cache="./hello.mbi")
+@pytest.fixture(autouse=True)
+def cleanup_cache():
+    """Ensure cache file is removed before and after each test."""
+    if os.path.exists(CACHE_PATH):
+        os.remove(CACHE_PATH)
+    yield
+    if os.path.exists(CACHE_PATH):
+        os.remove(CACHE_PATH)
 
-  idx = mbuf.buffer.index(b"hello")
-  buf = list(mbuf.buffer)
-  buf[idx] = ord(b'H')
-  mbuf.buffer = bytes(buf)
 
-  try:
-    mbuf[1]
-    assert False
-  except ValidationError:
-    pass
+def make_mapbuffer(data=None, **kwargs):
+    data = data or {1: b"hello", 2: b"world"}
+    return MapBuffer(data, index_cache=CACHE_PATH, **kwargs)
 
-  assert os.path.exists("./hello.mbi")
 
-  mbuf = MapBuffer(data, index_cache="./hello.mbi")
-  mbuf.index()
+def test_index_cache_file_is_created():
+    """Cache file should be written after first access."""
+    mbuf = make_mapbuffer()
+    mbuf.index()
+    assert os.path.exists(CACHE_PATH)
 
+
+def test_index_cache_header_and_index_written():
+    """Cache file should contain header + full index bytes."""
+    mbuf = make_mapbuffer()
+    index = mbuf.index()
+    
+    with open(CACHE_PATH, "rb") as f:
+        cached = f.read()
+
+    assert len(cached) == HEADER_LENGTH + index.nbytes
+
+
+def test_index_cache_is_loaded_from_disk():
+    """Second MapBuffer with same cache should read index from disk, not buffer."""
+    mbuf = make_mapbuffer()
+    original_index = mbuf.index().copy()
+
+    # Reload — this time the cache exists, so index should come from disk
+    mbuf2 = make_mapbuffer()
+    mbuf2._index = None  # ensure not inherited
+
+    with patch.object(np, "frombuffer", wraps=np.frombuffer) as mock_frombuffer:
+        loaded_index = mbuf2.index()
+        # np.frombuffer should NOT be called on the main buffer for the index
+        for call in mock_frombuffer.call_args_list:
+            args, kwargs = call
+            # Ensure we're not reading index from the primary buffer
+            assert kwargs.get("offset") != HEADER_LENGTH, \
+                "Index was re-read from buffer instead of cache"
+
+    np.testing.assert_array_equal(loaded_index, original_index)
+
+
+def test_index_cache_values_correct():
+    """Values retrieved using cache should match those from a non-cached buffer."""
+    mbuf_cached = make_mapbuffer()
+    mbuf_plain = MapBuffer({1: b"hello", 2: b"world"})
+
+    for key in [1, 2]:
+        assert mbuf_cached[key] == mbuf_plain[key]
+
+
+def test_crc_error_raised_despite_cache():
+    """CRC validation should still catch corruption even when cache exists."""
+    data = {1: b"hello", 2: b"world"}
+    mbuf = make_mapbuffer(data)
+    mbuf.index()  # populate cache
+
+    # Corrupt the data region in the buffer
+    buf = bytearray(mbuf.buffer)
+    idx = bytes(buf).index(b"hello")
+    buf[idx] = ord(b"H")
+    mbuf.buffer = bytes(buf)
+    mbuf._index = None  # force re-read so cache is used but data is still corrupt
+
+    with pytest.raises(ValidationError):
+        mbuf[1]
+
+
+def test_index_cache_not_rewritten_if_already_complete():
+    """Cache file should not be overwritten on second load."""
+    mbuf = make_mapbuffer()
+    mbuf.index()
+
+    mtime_after_first = os.path.getmtime(CACHE_PATH)
+
+    mbuf2 = make_mapbuffer()
+    mbuf2.index()
+
+    mtime_after_second = os.path.getmtime(CACHE_PATH)
+    assert mtime_after_first == mtime_after_second, \
+        "Cache file was unexpectedly rewritten on second access"
