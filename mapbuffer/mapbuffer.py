@@ -1,5 +1,6 @@
 from typing import Optional, Any, Union, Literal
 from collections.abc import Callable
+import os
 
 import mmap 
 import io
@@ -9,6 +10,7 @@ from .lib import nvl, eytzinger_sort
 from . import compression
 
 import crc32c
+import fasteners
 import numpy as np
 
 import mapbufferaccel
@@ -21,8 +23,8 @@ class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "check_crc", "compute_crc",
-    "_header", "_index", "_compress"
+    "dtype", "buffer", "check_crc", "compute_crc", "index_cache",
+    "_header", "_index", "_compress", "_lock"
   )
   def __init__(
     self,
@@ -32,6 +34,7 @@ class MapBuffer:
     frombytesfn:Optional[Callable[[bytes], Any]] = None,
     check_crc:bool = True, 
     compute_crc:bool = True,
+    index_cache:Optional[str] = None,
   ):
     """
     data: dict (int->byte serializable object) or bytes 
@@ -52,10 +55,14 @@ class MapBuffer:
     self.buffer = None
     self.check_crc = check_crc
     self.compute_crc = compute_crc
+    self.index_cache = index_cache
 
     self._header = None
     self._index = None
     self._compress = None
+    self._lock = None
+    if self.index_cache is not None:
+      self._lock = fasteners.InterProcessReaderWriterLock(self.index_cache)
 
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, compress)
@@ -102,9 +109,29 @@ class MapBuffer:
     if self._header is not None:
       return self._header
 
+    if self.index_cache is not None:
+      if os.path.exists(self.index_cache):
+        with self._lock.read_lock():
+          with open(self.index_cache, "rb") as f:
+            self._header = f.read(HEADER_LENGTH)
+
+        if len(self._header) == HEADER_LENGTH:
+          return self._header
+
     # seems dumb, buf if self.buffer is an object that
     # requires network access, this is a valuable cache
     self._header = self.buffer[:HEADER_LENGTH]
+
+    if self.index_cache is not None:
+      with self._lock.write_lock():
+        try:
+          if os.path.getsize(self.index_cache) < HEADER_LENGTH:
+            with open(self.index_cache, "wb") as f:
+              f.write(self._header)
+        except FileNotFoundError:
+          with open(self.index_cache, "wb") as f:
+            f.write(self._header)
+
     return self._header
 
   def index(self):
@@ -114,6 +141,18 @@ class MapBuffer:
 
     N = len(self)
     index_length = 2 * N
+
+    if self.index_cache is not None:
+      try:
+        if os.path.getsize(self.index_cache) > HEADER_LENGTH:
+          with self._lock.read_lock():
+            with open(self.index_cache, "rb") as f:
+              f.seek(HEADER_LENGTH)
+              index = f.read(index_length * 8)
+          self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+          return self._index
+      except FileNotFoundError:
+        pass
 
     if isinstance(self.buffer, (bytes,bytearray,np.ndarray,mmap.mmap)):
       self._index = np.frombuffer(
@@ -126,6 +165,15 @@ class MapBuffer:
       index_length *= 8
       index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
       self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+    
+    if self.index_cache is not None:
+      try:
+        if os.path.getsize(self.index_cache) == HEADER_LENGTH:
+          with self._lock.write_lock():
+            with open(self.index_cache, "ab") as f:
+              f.write(self._index.tobytes('C'))
+      except FileNotFoundError:
+        pass
     
     return self._index
 

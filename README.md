@@ -47,6 +47,11 @@ with open("data.im", "wb") as f:
 # You can skip computing or checking CRCs, e.g. if your
 # embedded object already contains CRCs
 mb = MapBuffer(..., check_crc=False, compute_crc=False)
+
+# If your access pattern is such that the index and the 
+# download are similar in size (e.g. watershed meshes)
+# you can cache the index.
+mb = MapBuffer(..., index_cache="/tmp/helloworld.mbi")
 ```
 
 ## Installation
