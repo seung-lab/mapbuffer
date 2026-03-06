@@ -62,7 +62,7 @@ class MapBuffer:
     self._compress = None
     self._lock = None
     if self.index_cache is not None:
-      self._lock = fasteners.InterProcessReaderWriterLock()
+      self._lock = fasteners.InterProcessReaderWriterLock(self.index_cache)
 
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, compress)
