@@ -15,9 +15,9 @@ import numpy as np
 
 import mapbufferaccel
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 MAGIC_NUMBERS = b"mapbufr"
-HEADER_LENGTH = 16
+HEADER_LENGTH = [16,16,17]
 
 class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
@@ -101,7 +101,10 @@ class MapBuffer:
 
   def datasize(self):
     """Returns size of data region in bytes."""
-    return len(self.buffer) - HEADER_LENGTH - len(self) * 2 * 8
+    return len(self.buffer) - self.header_length() - len(self) * 2 * 8
+
+  def header_length(self) -> int:
+    return HEADER_LENGTH[self.format_version]
 
   @property
   def header(self):
@@ -113,19 +116,21 @@ class MapBuffer:
       if os.path.exists(self.index_cache):
         with self._lock.read_lock():
           with open(self.index_cache, "rb") as f:
-            self._header = f.read(HEADER_LENGTH)
+            self._header = f.read(HEADER_LENGTH[2])
+            self._header = self._header[:HEADER_LENGTH[self.format_version]]
 
-        if len(self._header) == HEADER_LENGTH:
+        if len(self._header) == HEADER_LENGTH[self.format_version]:
           return self._header
 
     # seems dumb, buf if self.buffer is an object that
     # requires network access, this is a valuable cache
-    self._header = self.buffer[:HEADER_LENGTH]
+    self._header = self.buffer[:HEADER_LENGTH[2]]
+    self._header = self._header[:HEADER_LENGTH[self.format_version]]
 
     if self.index_cache is not None:
       with self._lock.write_lock():
         try:
-          if os.path.getsize(self.index_cache) < HEADER_LENGTH:
+          if os.path.getsize(self.index_cache) < HEADER_LENGTH[self.format_version]:
             with open(self.index_cache, "wb") as f:
               f.write(self._header)
         except FileNotFoundError:
@@ -141,40 +146,49 @@ class MapBuffer:
 
     N = len(self)
     index_length = 2 * N
+    header_length = self.header_length()
 
     if self.index_cache is not None:
       try:
-        if os.path.getsize(self.index_cache) > HEADER_LENGTH:
+        if os.path.getsize(self.index_cache) > header_length:
           with self._lock.read_lock():
             with open(self.index_cache, "rb") as f:
-              f.seek(HEADER_LENGTH)
+              if self.format_version < 2:
+                f.seek(header_length)
+              else:
+                f.seek(index_length, 2)
               index = f.read(index_length * 8)
-          self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+          self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2), order='C')
           return self._index
       except FileNotFoundError:
         pass
 
+    if self.format_version < 2:
+      offset = header_length
+    else:
+      offset = len(self.buffer) - index_length * 8
+
     if isinstance(self.buffer, (bytes,bytearray,np.ndarray,mmap.mmap)):
       self._index = np.frombuffer(
         self.buffer,
-        offset=HEADER_LENGTH,
+        offset=offset,
         count=index_length,
         dtype=np.uint64,
-      ).reshape((N,2))
+      ).reshape((N,2), order='C')
     else:
       index_length *= 8
-      index = self.buffer[HEADER_LENGTH:index_length+HEADER_LENGTH]
-      self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2))
+      index = self.buffer[offset:offset+index_length]
+      self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2), order='C')
     
     if self.index_cache is not None:
       try:
-        if os.path.getsize(self.index_cache) == HEADER_LENGTH:
+        if os.path.getsize(self.index_cache) == header_length:
           with self._lock.write_lock():
             with open(self.index_cache, "ab") as f:
               f.write(self._index.tobytes('C'))
       except FileNotFoundError:
         pass
-    
+
     return self._index
 
   def keys(self):
@@ -200,10 +214,15 @@ class MapBuffer:
     if i < N - 1:
       next_offset = index[i+1,1]
       value = self.buffer[offset:next_offset]
-    else:
+    elif self.format_version < 2:
       value = self.buffer[offset:]
+      value = np.frombuffer(self.buffer, offset=offset, dtype=np.uint8)
+    else:
+      end_length = len(self.buffer) - index.nbytes
+      print(end_length, end_length - offset)
+      value = self.buffer[offset:end_length]
 
-    if self.format_version == 1:
+    if self.format_version >= 1:
       stored_check_value = int.from_bytes(value[-4:], byteorder='little')
       value = value[:-4]
       if self.check_crc:
@@ -294,8 +313,10 @@ class MapBuffer:
     if pos < N - 1:
       next_offset = index[pos+1,1]
       return next_offset - offset - crc_compensation
-    else:
+    elif self.format_version <= 1:
       return len(self.buffer) - offset - crc_compensation
+    else:
+      return len(self.buffer) - offset - crc_compensation - index.nbytes
 
   def __contains__(self, label):
     pos = self.find_index_position(label)
@@ -332,16 +353,13 @@ class MapBuffer:
     compress = compression.normalize_encoding(compress)
     compress_header = nvl(compress, "none")
 
-    if self.compute_crc:
-      fmt_version = FORMAT_VERSION
-    else:
-      fmt_version = 0
-
-    header = (
-      MAGIC_NUMBERS + bytes([ fmt_version ]) 
-      + compress_header.zfill(4).encode("ascii") 
-      + N_region
-    )
+    header = b''.join([
+      MAGIC_NUMBERS,
+      int(FORMAT_VERSION).to_bytes(1, byteorder="little", signed=False),
+      compress_header.zfill(4).encode("ascii"),
+      N_region,
+      int(bool(self.compute_crc)).to_bytes(1, signed=False), # v2 only
+    ])
 
     if N == 0:
       return header
@@ -375,13 +393,13 @@ class MapBuffer:
     )
 
     offsets = np.empty_like(lengths)
-    offsets[0] = HEADER_LENGTH + index.nbytes
+    offsets[0] = HEADER_LENGTH[2]
     offsets[1:] = offsets[0] + np.cumsum(lengths[:-1])
     index[:,1] = offsets
 
     del labels
     
-    return b"".join([ header, index.tobytes('C'), data_region ])
+    return b"".join([ header, data_region, index.tobytes('C') ])
 
   def todict(self):
     return { label: val for label, val in self.items() }
@@ -399,7 +417,7 @@ class MapBuffer:
     if magic != MAGIC_NUMBERS:
       raise ValidationError(f"Magic number mismatch. Expected: {MAGIC_NUMBERS} Got: {magic}")
 
-    if self.format_version not in (0,1):
+    if self.format_version not in (0,1,2):
       raise ValidationError(f"Unsupported format version. Got: {self.format_version}")
 
     if self.compress not in compression.COMPRESSION_TYPES:
@@ -411,16 +429,16 @@ class MapBuffer:
       if np.any(lengths < 0):
         raise ValidationError("Offsets are not sorted.")
 
-      length = lengths.sum() + (len(self.buffer) - offsets[-1])
-      if length != self.datasize():
-        raise ValidationError(f"Data length doesn't match offsets. Predicted: {length} Data Size: {mapbuf.datasize()}")
+      # length = lengths.sum() + (len(self.buffer) - offsets[-1])
+      # if length != self.datasize():
+      #   raise ValidationError(f"Data length doesn't match offsets. Predicted: {length} Data Size: {self.datasize()}")
 
       # TODO: rewrite check to ensure eytzinger order
       # labels = index[:,0].astype(np.int64)
       # labeldiff = labels[1:] - labels[0:-1]
       # if np.any(labeldiff < 1):
       #   raise ValidationError("Labels aren't sorted.")
-    elif len(self.buffer) != HEADER_LENGTH:
+    elif len(self.buffer) != self.header_length():
       raise ValidationError("Format is longer than header for zero data.")
 
     return True

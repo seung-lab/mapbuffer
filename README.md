@@ -94,11 +94,22 @@ HEADER|INDEX|DATA_REGION
 |----------------|----------------------------------------|
 | 0              | Initial Release                        |
 | 1              | Adds crc32c check values to each item. |
+| 2              | Moves index to back, adds option to disable crcs. |
 
 ### Header 
 
+#### Format 0 and 1
+
 ```
-b'mapbufr' (7b)|FORMAT_VERSION (uint8)|COMPRESSION_TYPE (4b)|INDEX_SIZE (uint32)
+b'mapbufr' (7B)|FORMAT_VERSION (uint8)|COMPRESSION_TYPE (4B)|INDEX_SIZE (uint32)
+```
+
+#### Format 2
+
+Adds flags. Flag bit 0 indicates whether CRCs were generated.
+
+```
+b'mapbufr' (7B)|FORMAT_VERSION (uint8)|COMPRESSION_TYPE (4B)|INDEX_SIZE (uint32)|FLAGS (1B)|
 ```
 
 Valid compression types: `b'none', b'gzip', b'00br', b'zstd', b'lzma'`

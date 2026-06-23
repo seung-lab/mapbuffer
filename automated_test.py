@@ -38,7 +38,9 @@ def test_full(compress, compute_crc):
   mbuf = MapBuffer(data, compress=compress, compute_crc=compute_crc)
   assert set(data.keys()) == set(mbuf.keys())
   assert set(data) == set(mbuf)
-  assert set(data.values()) == set(( bytes(x) for x in mbuf.values()))
+
+  for label, val in data.items():
+    assert val == bytes(mbuf[label])
 
   for key in data:
     assert data[key] == mbuf[key]
@@ -61,7 +63,7 @@ def test_full(compress, compute_crc):
 
   mbuf.validate()
 
-  assert len(mbuf.buffer) > HEADER_LENGTH
+  assert len(mbuf.buffer) > HEADER_LENGTH[2]
 
 @pytest.mark.parametrize("compress", (None, "gzip", "br", "zstd"))
 def test_crc32c(compress):
@@ -190,7 +192,7 @@ def test_full_intmap():
 
   im.validate()
 
-  assert len(im.buffer) > HEADER_LENGTH
+  assert len(im.buffer) > HEADER_LENGTH[2]
 
 def test_mmap_access_intmap():
   data = { 
@@ -281,7 +283,7 @@ def test_index_cache_header_and_index_written():
     with open(CACHE_PATH, "rb") as f:
         cached = f.read()
 
-    assert len(cached) == HEADER_LENGTH + index.nbytes
+    assert len(cached) == HEADER_LENGTH[2] + index.nbytes
 
 
 def test_index_cache_is_loaded_from_disk():
@@ -299,7 +301,7 @@ def test_index_cache_is_loaded_from_disk():
         for call in mock_frombuffer.call_args_list:
             args, kwargs = call
             # Ensure we're not reading index from the primary buffer
-            assert kwargs.get("offset") != HEADER_LENGTH, \
+            assert kwargs.get("offset") != HEADER_LENGTH[2], \
                 "Index was re-read from buffer instead of cache"
 
     np.testing.assert_array_equal(loaded_index, original_index)
