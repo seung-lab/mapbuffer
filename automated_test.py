@@ -120,6 +120,8 @@ def test_object_access(compress):
   class Reader:
     def __init__(self):
       self.lst = mbuf.tobytes()
+    def __len__(self):
+      return len(self.lst)
     def __getitem__(self, slc):
       return self.lst[slc]
 

@@ -156,7 +156,7 @@ class MapBuffer:
               if self.format_version < 2:
                 f.seek(header_length)
               else:
-                f.seek(index_length, 2)
+                f.seek(-index_length * 8, 2)
               index = f.read(index_length * 8)
           self._index = np.frombuffer(index, dtype=np.uint64).reshape((N,2), order='C')
           return self._index
@@ -216,13 +216,11 @@ class MapBuffer:
       value = self.buffer[offset:next_offset]
     elif self.format_version < 2:
       value = self.buffer[offset:]
-      value = np.frombuffer(self.buffer, offset=offset, dtype=np.uint8)
     else:
       end_length = len(self.buffer) - index.nbytes
-      print(end_length, end_length - offset)
       value = self.buffer[offset:end_length]
 
-    if self.format_version >= 1:
+    if self.format_version >= 1 and self.compute_crc:
       stored_check_value = int.from_bytes(value[-4:], byteorder='little')
       value = value[:-4]
       if self.check_crc:
@@ -248,9 +246,12 @@ class MapBuffer:
     if i < N - 1:
       next_offset = index[i+1,1]
       existing_length = int(next_offset - offset) 
-    else:
+    elif self.format_version < 2:
       existing_length = int(len(self.buffer) - offset)
       next_offset = int(len(self.buffer))
+    else:
+      existing_length = int(len(self.buffer) - offset - index.nbytes)
+      next_offset = int(len(self.buffer) - index.nbytes)
 
     if self.tobytesfn:
       data = self.tobytesfn(data)
@@ -259,7 +260,7 @@ class MapBuffer:
       data = compression.compress(data, method=self.compress) 
 
     check_length = len(data)
-    if self.format_version == 1:
+    if self.format_version == 1 or (self.format_version > 1 and self.compute_crc):
       check_length += 4
 
     if check_length != existing_length:
@@ -268,7 +269,7 @@ class MapBuffer:
         f"Expected: {existing_length} bytes, Got: {check_length} bytes"
       )
 
-    if self.format_version == 1:
+    if self.format_version == 1 or not self.compute_crc:
       self.buffer[offset:next_offset] = data
     else:
       data += crc32c.crc32c(data).to_bytes(4, byteorder='little')
@@ -307,7 +308,7 @@ class MapBuffer:
     offset = index[pos,1]
 
     crc_compensation = 0
-    if self.format_version > 0:
+    if self.format_version == 1 or (self.format_version >= 2 and self.compute_crc):
       crc_compensation = 4
 
     if pos < N - 1:
