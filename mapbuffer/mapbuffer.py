@@ -1,5 +1,5 @@
 import typing
-from typing import Optional, Any, Union, Literal
+from typing import Optional, Any, Union, Literal, Callable
 from collections.abc import Callable
 import os
 
@@ -24,7 +24,7 @@ class MapBuffer:
   """Represents a usable int->bytes dictionary as a byte string."""
   __slots__ = (
     "data", "tobytesfn", "frombytesfn", 
-    "dtype", "buffer", "check_crc", "compute_crc", "index_cache",
+    "dtype", "buffer", "check_crc", "index_cache",
     "_header", "_index", "_compress", "_lock"
   )
   def __init__(
@@ -55,7 +55,6 @@ class MapBuffer:
     self.dtype = np.uint64
     self.buffer = None
     self.check_crc = check_crc
-    self.compute_crc = compute_crc
     self.index_cache = index_cache
 
     self._header = None
@@ -66,7 +65,7 @@ class MapBuffer:
       self._lock = fasteners.InterProcessReaderWriterLock(f"{self.index_cache}.lock")
 
     if isinstance(data, dict):
-      self.buffer = self.dict2buf(data, compress)
+      self.buffer = self.dict2buf(data, compress, compute_crc=compute_crc)
     elif isinstance(data, io.BytesIO):
       pos = data.tell()
       self.buffer = data.read()
@@ -100,6 +99,15 @@ class MapBuffer:
   @property
   def format_version(self):
     return self.header[len(MAGIC_NUMBERS)]
+
+  @property
+  def compute_crc(self):
+    if self.format_version == 0:
+      return False
+    elif self.format_version == 1:
+      return True
+    else:
+      return self.header[HEADER_LENGTH[2] - 1] & 0b1
 
   def __iter__(self):
     yield from self.keys()
@@ -342,7 +350,12 @@ class MapBuffer:
     else:
       raise KeyError("{} was not found.".format(label))    
 
-  def dict2buf(self, data, compress=None, tobytesfn=None):
+  def dict2buf(self, 
+    data:dict[int,bytes],
+    compress:Optional[bool] = None,
+    tobytesfn:Optional[Callable[[Any], bytes]] = None,
+    compute_crc:bool = False,
+  ):
     """Structure [ index length, sorted index, data ]"""
     labels = np.fromiter(
       ( int(lbl) for lbl in data.keys() ), 
@@ -364,7 +377,7 @@ class MapBuffer:
       int(FORMAT_VERSION).to_bytes(1, byteorder="little", signed=False),
       compress_header.zfill(4).encode("ascii"),
       N_region,
-      int(bool(self.compute_crc)).to_bytes(1, signed=False), # v2 only
+      int(bool(compute_crc)).to_bytes(1, signed=False), # v2 only
     ])
 
     if N == 0:
@@ -376,15 +389,15 @@ class MapBuffer:
     noop = lambda x: x
     tobytesfn = nvl(tobytesfn, self.tobytesfn, noop)
 
-    if tobytesfn == noop and compress is None and not self.compute_crc:
+    if tobytesfn == noop and compress is None and not compute_crc:
       bytes_data = data
     else:
-      bytes_data = { 
+      bytes_data = {
         label: compression.compress(tobytesfn(val), method=compress) 
         for label, val in data.items()
       }
 
-    if self.compute_crc:
+    if compute_crc:
       for label in bytes_data:
         bytes_data[label] += crc32c.crc32c(bytes_data[label]).to_bytes(4, byteorder='little')
 
@@ -492,10 +505,12 @@ def append_to_mapbuffer_file(filelike:Union[str,io.IOBase], data:dict[int,bytes]
     for label, offset in index
   }
 
+  crc_offset = 4 if mb.compute_crc else 0
+
   offset = max_offset + max_content_len
   for label in new_labels:
     index_dict[label] = offset
-    offset += len(data[label])
+    offset += len(data[label]) + crc_offset
 
   all_labels.sort()
   layout = mapbufferaccel.eytzinger_sort_indices(len(all_labels))
@@ -518,6 +533,7 @@ def append_to_mapbuffer_file(filelike:Union[str,io.IOBase], data:dict[int,bytes]
   f.write(new_index.tobytes('C'))
   f.flush()
   
+  # Particular to format 2
   # INDEX_SIZE (uint32)|FLAGS (1B)|
   f.seek(HEADER_LENGTH[2] - 4 - 1)
   f.write(len(all_labels).to_bytes(4, 'little'))
