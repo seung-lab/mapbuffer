@@ -19,3 +19,9 @@ class UnsupportedCompressionType(ValueError):
 
 class ValidationError(BaseException):
   pass
+
+class UnsupportedOperationError(Exception):
+  """
+  The current format version does not support this
+  operation.
+  """

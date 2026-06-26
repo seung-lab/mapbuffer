@@ -1,5 +1,6 @@
 import pytest
 
+import io
 import mmap
 import os
 import random
@@ -7,7 +8,13 @@ from unittest.mock import patch
 
 import numpy as np
 
-from mapbuffer import ValidationError, IntMap, MapBuffer, HEADER_LENGTH
+from mapbuffer import (
+  ValidationError, 
+  append_to_mapbuffer_file, 
+  IntMap,
+  MapBuffer,
+  HEADER_LENGTH,
+)
 
 CACHE_PATH = "./test_index_cache.mbi"
 

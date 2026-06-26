@@ -1,3 +1,4 @@
+import typing
 from typing import Optional, Any, Union, Literal
 from collections.abc import Callable
 import os
@@ -5,7 +6,7 @@ import os
 import mmap 
 import io
 
-from .exceptions import ValidationError
+from .exceptions import ValidationError, UnsupportedOperationError
 from .lib import nvl, eytzinger_sort
 from . import compression
 
@@ -66,6 +67,10 @@ class MapBuffer:
 
     if isinstance(data, dict):
       self.buffer = self.dict2buf(data, compress)
+    elif isinstance(data, io.BytesIO):
+      pos = data.tell()
+      self.buffer = data.read()
+      data.seek(pos)
     elif isinstance(data, io.IOBase):
       self.buffer = mmap.mmap(data.fileno(), 0, access=mmap.ACCESS_READ)
     elif isinstance(data, (bytes, bytearray, mmap.mmap)):
@@ -448,3 +453,75 @@ class MapBuffer:
   def validate_buffer(buf):
     mapbuf = MapBuffer(buf)
     return mapbuf.validate()
+
+def append_to_mapbuffer_file(filelike:Union[str,io.IOBase], data:dict[int,bytes]):
+  """
+  Append new labels to an existing MapBuffer file.
+  """
+  if isinstance(filelike, str):
+    f = open(filelike, "rb")
+  else:
+    f = filelike
+
+  mb = MapBuffer(f)
+  format_version = mb.format_version
+  N = len(mb)
+  index = mb.index()
+  f.seek(0, io.SEEK_END)
+  mb_size = f.tell()
+
+  if format_version < 2:
+    raise UnsupportedOperationError("Append is not supported prior to format version 2.")
+
+  orig_index_bytes = index.nbytes
+
+  new_labels = [ int(x) for x in data.keys() ]
+  old_labels = set(index[:,0])
+
+  duplicates = old_labels.intersection(set(new_labels))
+  if len(duplicates) > 0:
+    raise ValueError(f"{",".join([ str(x) for x in duplicates ])} are duplicates.")
+
+  all_labels = np.concatenate((index[:,0], new_labels))
+
+  max_offset = np.max(index[:,1])
+  max_content_len = mb_size - orig_index_bytes - max_offset
+
+  index_dict = {
+    label: offset
+    for label, offset in index
+  }
+
+  offset = max_offset + max_content_len
+  for label in new_labels:
+    index_dict[label] = offset
+    offset += len(data[label])
+
+  all_labels.sort()
+  layout = mapbufferaccel.eytzinger_sort_indices(len(all_labels))
+  all_labels = all_labels[layout]
+
+  new_index = np.zeros([len(index_dict), 2], dtype=np.uint64, order="C")
+  new_index[:,0] = all_labels
+
+  for i, label in enumerate(all_labels):
+    new_index[i,1] = index_dict[label]
+
+  f.seek(-orig_index_bytes, io.SEEK_END)
+
+  for label in new_labels:
+    binary = data[label]
+    if mb.compute_crc:
+      binary += crc32c.crc32c(binary).to_bytes(4, byteorder='little')
+    f.write(binary)
+
+  f.write(new_index.tobytes('C'))
+  f.flush()
+  
+  # INDEX_SIZE (uint32)|FLAGS (1B)|
+  f.seek(HEADER_LENGTH[2] - 4 - 1)
+  f.write(len(all_labels).to_bytes(4, 'little'))
+  f.flush()
+
+  if isinstance(filelike, str):
+    f.close()

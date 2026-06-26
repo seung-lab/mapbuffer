@@ -27,6 +27,12 @@ Simple Example:
   >>> b'abc'
 """
 
-from .mapbuffer import MapBuffer, HEADER_LENGTH, MAGIC_NUMBERS, FORMAT_VERSION
+from .mapbuffer import (
+  MapBuffer,
+  append_to_mapbuffer_file,
+  HEADER_LENGTH,
+  MAGIC_NUMBERS,
+  FORMAT_VERSION,
+)
 from .intmap import IntMap
 from .exceptions import *
