@@ -376,9 +376,8 @@ def test_append_simple():
   append_to_mapbuffer_file(f, append)
 
   f.seek(0)
-
   mb = MapBuffer(f)
-  print("wow", mb.index())
+
   assert mb[3] == b"buddy"
 
 
