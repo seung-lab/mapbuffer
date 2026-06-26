@@ -507,10 +507,15 @@ def append_to_mapbuffer_file(filelike:Union[str,io.IOBase], data:dict[int,bytes]
 
   crc_offset = 4 if mb.compute_crc else 0
 
+  compressed_data = {
+    label: compression.compress(binary, method=mb.compress) 
+    for label, binary in data.items()
+  }
+
   offset = max_offset + max_content_len
   for label in new_labels:
     index_dict[label] = offset
-    offset += len(data[label]) + crc_offset
+    offset += len(compressed_data[label]) + crc_offset
 
   all_labels.sort()
   layout = mapbufferaccel.eytzinger_sort_indices(len(all_labels))
@@ -525,7 +530,7 @@ def append_to_mapbuffer_file(filelike:Union[str,io.IOBase], data:dict[int,bytes]
   f.seek(-orig_index_bytes, io.SEEK_END)
 
   for label in new_labels:
-    binary = data[label]
+    binary = compressed_data[label]
     if mb.compute_crc:
       binary += crc32c.crc32c(binary).to_bytes(4, byteorder='little')
     f.write(binary)
