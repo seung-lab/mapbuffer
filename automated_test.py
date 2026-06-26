@@ -355,3 +355,32 @@ def test_index_cache_not_rewritten_if_already_complete():
     mtime_after_second = os.path.getmtime(CACHE_PATH)
     assert mtime_after_first == mtime_after_second, \
         "Cache file was unexpectedly rewritten on second access"
+
+def test_append_simple():
+  data = {1: b"hello", 2: b"world"}
+  mb = MapBuffer(data)
+
+  f = io.BytesIO(mb.tobytes())
+
+  append = {3: b"buddy"}
+
+  assert mb[1] == b"hello"
+  assert mb[2] == b"world"
+
+  try:
+    mb[3]
+    assert False
+  except KeyError:
+    pass
+
+  append_to_mapbuffer_file(f, append)
+
+  f.seek(0)
+
+  mb = MapBuffer(f)
+  print("wow", mb.index())
+  assert mb[3] == b"buddy"
+
+
+
+
